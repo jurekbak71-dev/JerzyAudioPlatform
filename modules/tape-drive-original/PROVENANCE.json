@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/jurekbak71-dev/JerzyTapeDriveVST3",
+  "commit": "3ee7f10f69b9488f5cc10087be1a54df097ef789",
+  "original_files_sha256": {
+    "source/tapedrive_dsp.h": "58bf82b062ecd6f756816ec80c7995285799ac5ae4731431185372ec6ba71631",
+    "source/tapedrive_params.h": "a031b89e5f681feb2d7b49ee87845871eb8edd857f5c7a6614e0eb9dff839f4c"
+  },
+  "import": "byte-for-byte DSP; native ABI wrapper is separate"
+}

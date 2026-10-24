@@ -1,0 +1,1 @@
+Porównanie DSP nie jest pomiarem wydajności Raspberry Pi. Oryginalny solver Big Muffa zachowuje oversampling i modele obwodowe; wymaga próby CPU/XRUN na docelowym Pi. Nie wolno zastępować go prostszym DSP i zachować oznaczenia zgodności.

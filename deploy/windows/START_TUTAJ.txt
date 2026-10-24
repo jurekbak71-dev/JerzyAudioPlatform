@@ -1,25 +1,21 @@
-JERZY AUDIO PLATFORM v0.1.0 — PACZKA TESTOWA
+JERZY AUDIO PLATFORM 0.2.0 — ORYGINALNE MODUŁY I DOMOWE WI-FI
 
-1. Rozpakuj cały ZIP. Nie uruchamiaj instalatora wewnątrz archiwum.
-2. Podłącz Windows i Raspberry Pi do tej samej sieci domowej.
-3. Kliknij dwukrotnie START-INSTALACJA.cmd.
-4. Jeżeli bassambient.local nie zostanie znaleziony, podaj IP z routera.
-5. Podaj hasło użytkownika jerzy w komunikacie OpenSSH.
-6. Najpierw nastąpi kontrola sum i STAGING. Nie wyłącza on MultiFX.
-7. Aktywacja następuje dopiero po wpisaniu TAK. Może wymagać hasła sudo.
-8. Po udanej aktywacji instalator wyświetli rzeczywisty adres panelu.
+1. Rozpakuj cały ZIP. Uruchom START-INSTALACJA.cmd.
+2. Podaj aktualne IP Pi i hasło SSH. Po poprawnym stagingu wpisz TAK.
+3. Do zmiany sieci użyj WIFI-DOMOWE.cmd. Nie kasuj hotspotu.
+   Po przełączeniu Windows na domowe Wi-Fi potwierdź nowe IP w ciągu 5 minut.
+4. Do pojedynczych paczek użyj INSTALUJ-MODUL.cmd i wskaż pliki .jamod.
+   W panelu: ŁAŃCUCH → tor → Dodaj moduł.
 
-Wymagania Pi: Linux ARM64, glibc >= 2.36, libstdc++ z GCC >= 12,
-Python >= 3.9, działający JACK2 oraz biblioteka libjack.so.0.
-Pakiet nie pobiera zależności na Pi. Przy ich braku przerwie instalację
-przed zmianą działającego systemu. Przeczytaj INSTRUKCJA_PL.html.
+Czytelna instrukcja: MODULY_I_WIFI_PL.html.
+AKTYWUJ.cmd — aktywacja przygotowanej paczki.
+PRZYWROC-MULTIFX.cmd — poprzednie usługi z ostatniego punktu przywracania.
+NAPRAW-I-AKTYWUJ.cmd — odzyskiwanie JACK po zniknięciu HeadRush z USB.
+DIAGNOSTYKA.cmd — stan urządzenia.
+OTWORZ-PANEL.cmd — panel na aktualnym IP.
 
-UWAGA: brak testów na fizycznym Raspberry Pi/HeadRush i Windows.
-Nie traktuj tej paczki jako stabilnego wydania produkcyjnego.
-
-PROSTSZA OBSŁUGA — DWUKLIK:
-START-INSTALACJA.cmd — przygotowanie plików i opcjonalna aktywacja.
-AKTYWUJ.cmd — aktywacja wcześniej przygotowanej paczki.
-OTWORZ-PANEL.cmd — otwarcie panelu po udanej aktywacji.
-PRZYWROC-MULTIFX.cmd — powrót do poprzedniego systemu.
-DIAGNOSTYKA.cmd — sprawdzenie stanu.
+Paczki -original zawierają pełny DSP oryginalnych wtyczek, oddzielny adapter
+ABI i wyniki porównań. Nie są to pliki Windows VST3 ani kopia ich GUI.
+Testy DSP nie zastępują pomiarów XRUN i odsłuchów na Twoim Pi.
+Wymagane: ARM64, glibc >= 2.36, libstdc++ z GCC >= 12, Python >= 3.9,
+działający JACK2 i libjack.so.0. Brak zależności zatrzymuje staging.

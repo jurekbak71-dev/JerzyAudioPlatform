@@ -50,10 +50,15 @@ class Library:
    manifest=json.loads(z.read('manifest.json'));checks=json.loads(z.read('SHA256.json'))
    id=manifest.get('id','');version=manifest.get('version','');lib=manifest.get('library','')
    if not ID.fullmatch(id) or not VERSION.fullmatch(version) or lib!=id+'.so' or manifest.get('abi')!=1:raise ValueError('Nieprawidłowy manifest lub ABI')
-   if set(names)!={'manifest.json','SHA256.json',lib} or set(checks)!={'manifest.json',lib}:raise ValueError('Niekompletna paczka')
+   allowed={'manifest.json',lib,'LICENSE.txt','PROVENANCE.json','COMPATIBILITY.json','README_PL.txt'}
+   if set(names)!=set(checks)|{'SHA256.json'} or not {'manifest.json',lib}<=set(checks) or not set(checks)<=allowed:raise ValueError('Niekompletna paczka lub niedozwolony plik')
    data={n:z.read(n) for n in checks}
    for n,value in data.items():
     if hashlib.sha256(value).hexdigest()!=checks[n]:raise ValueError('Uszkodzony plik: '+n)
+   if id.endswith('-original'):
+    if 'COMPATIBILITY.json' not in data:raise ValueError('Brak raportu porównania oryginalnego DSP; zaktualizuj system i użyj oficjalnej paczki')
+    report=json.loads(data['COMPATIBILITY.json'])
+    if report.get('passed') is not True or report.get('library_sha256')!=hashlib.sha256(data[lib]).hexdigest() or report.get('reference_commit')!=manifest.get('source',{}).get('commit'):raise ValueError('Raport zgodności nie odpowiada modułowi lub źródłom')
    if elf_arch(data[lib])!=platform.machine():raise ValueError('Paczka dla innej architektury')
    required=manifest.get('minimum_glibc')
    family,current=platform.libc_ver()

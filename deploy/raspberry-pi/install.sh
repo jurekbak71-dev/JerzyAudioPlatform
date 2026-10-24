@@ -15,11 +15,16 @@ print('Sumy plików poprawne.')
 PY
 ldd "$root/bin/jerzy-audio-core" > "$root/runtime-check.log" 2>&1 || { cat "$root/runtime-check.log"; exit 1; }
 if grep -q 'not found' "$root/runtime-check.log"; then cat "$root/runtime-check.log"; echo 'BŁĄD: Brakuje zależności systemowych. Nie pobieram ich podczas instalacji offline.'; exit 1; fi
-"$root/tests/module-tests" "$root/modules" > "$root/module-tests.log" 2>&1 || { cat "$root/module-tests.log"; exit 1; }
+"$root/tests/module-tests" "$root/tests/legacy-modules" > "$root/module-tests.log" 2>&1 || { cat "$root/module-tests.log"; exit 1; }
+for binary in "$root"/tests/compare-*; do
+ [ -f "$binary" ] || continue
+ nice -n 10 "$binary" "$root/modules" >> "$root/module-tests.log" 2>&1 || { cat "$root/module-tests.log"; exit 1; }
+done
 base="$HOME/.local/share/jerzy-audio-platform"
 mkdir -p "$base/releases" "$base/presets" "$base/irs" "$base/modules"
 # Do not overwrite a prior release or an interrupted installation.
-release="$base/releases/0.1.0-$(date +%Y%m%d-%H%M%S)-$$"
+version=$(python3 -c 'import json;print(json.load(open("BUILD-METADATA.json"))["version"])')
+release="$base/releases/$version-$(date +%Y%m%d-%H%M%S)-$$"
 mkdir "$release"
 cp -R "$root"/. "$release"/
 for module in "$release"/modules/*; do
@@ -29,6 +34,9 @@ for module in "$release"/modules/*; do
 done
 printf '%s\n' "$release" > "$base/staged.tmp"
 mv "$base/staged.tmp" "$base/staged"
+if command -v loginctl >/dev/null; then
+ echo 'Aby panel działał po wylogowaniu SSH, aktywacja sprawdzi trwałość usług użytkownika.'
+fi
 echo "STAGING ZAKOŃCZONY. Pliki: $release"
 echo 'Dotychczasowe usługi, JACK i sieć nadal działają bez zmian.'
 echo "Aktywacja: python3 '$release/deploy/raspberry-pi/control.py' activate"

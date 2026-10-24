@@ -29,7 +29,8 @@ jobs:
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_SKIP_RPATH=ON
           cmake --build build --parallel 2
-          ctest --test-dir build --output-on-failure > docs/BUILD-TESTS.log 2>&1
+          python3 tools/ci_run.py docs/BUILD-TESTS.log ctest --test-dir build --output-on-failure
+          python3 tests/certify_originals.py --build build
           ./build/module-tests ./build/modules > docs/DSP-TESTS.log
       - name: JACK, HTTP, presety, paczki i rollback z błędem
         env:

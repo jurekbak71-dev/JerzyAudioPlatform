@@ -1,0 +1,20 @@
+{
+  "id": "bass-ambient-original",
+  "name": "Jerzy Bass Ambient — oryginalny DSP",
+  "version": "0.2.0",
+  "abi": 1,
+  "library": "bass-ambient-original.so",
+  "instrument": true,
+  "category": "instrument",
+  "source": {
+    "repository": "https://github.com/jurekbak71-dev/JerzyBassAmbientVST3",
+    "commit": "c050475ecb9095bc1bc65e6719f1367235a14b61",
+    "original_files_sha256": {
+      "Source/Core.h": "07bb6960e5a8e21b23617fe5d370dba727cf617c7c216a4f4d3de377a048ceae",
+      "Source/Parameters.def": "eb4590b82dd1b49b00ebb933a314a9578deb3d91c056a57b35fb4c3905bd882c",
+      "Source/FXParameters.def": "de0841d6638e50d2f17acf3b960867df95fe20d945037b002d1d0da3c41067ba"
+    },
+    "import": "byte-for-byte DSP; native ABI wrapper is separate"
+  },
+  "compatibility": "reference-comparison-required"
+}

@@ -14,6 +14,16 @@ def package(manifest_path,library_path,output):
  dynamic=subprocess.check_output(['readelf','-d',str(library_path)],text=True)
  manifest['runtime_libraries']=re.findall(r'\(NEEDED\).*\[(.*?)\]',dynamic)
  files={'manifest.json':(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n').encode(),manifest['library']:data}
+ for extra in ['LICENSE.txt','PROVENANCE.json','README_PL.txt']:
+  file=Path(manifest_path).parent/extra
+  if file.is_file():files[extra]=file.read_bytes()
+ report=Path(library_path).parents[2]/'compatibility'/(manifest['id']+'.json')
+ if report.is_file():
+  record=json.loads(report.read_text())
+  if record.get('library_sha256')!=hashlib.sha256(data).hexdigest():raise ValueError('Raport zgodności nie odpowiada bibliotece')
+  files['COMPATIBILITY.json']=report.read_bytes()
+  manifest['compatibility']=record
+  files['manifest.json']=(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n').encode()
  files['SHA256.json']=json.dumps({n:hashlib.sha256(b).hexdigest() for n,b in files.items()},indent=2).encode()
  output=Path(output);output.parent.mkdir(parents=True,exist_ok=True)
  with zipfile.ZipFile(output,'w',compression=zipfile.ZIP_DEFLATED) as z:

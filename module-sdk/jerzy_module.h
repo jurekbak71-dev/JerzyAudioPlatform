@@ -24,7 +24,12 @@ typedef struct {
 typedef const JAModule *(*JAEntry)(void);
 /* Export ja_module. Only create/destroy may allocate or access files.
    process must never throw, allocate, block, log or perform IO. */
-const JAModule *ja_module(void);
+#if defined(_WIN32)
+#define JA_EXPORT __declspec(dllexport)
+#else
+#define JA_EXPORT __attribute__((visibility("default")))
+#endif
+JA_EXPORT const JAModule *ja_module(void);
 #ifdef __cplusplus
 }
 #endif

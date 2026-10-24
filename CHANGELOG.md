@@ -1,5 +1,11 @@
 # Zmiany
 
+## 0.2.0 — pełne oryginalne DSP i domowe Wi-Fi
+
+Siedem niezależnych modułów original z raportami porównań, zaufany katalog i instalator modułów offline, narzędzie Wi-Fi z potwierdzeniem i rollbackiem oraz checkpointy aktualizacji hosta. Szczegóły w docs/ORYGINALNE_DSP_0.2.md.
+
+# Zmiany
+
 ## 0.1.0 — rozwojowa, 24 października 2026
 
 - Osobny host JACK i wersjonowany SDK C ABI 1.

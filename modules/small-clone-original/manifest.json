@@ -1,0 +1,68 @@
+{
+  "id": "small-clone-original",
+  "name": "Jerzy Small Clone — oryginalny DSP",
+  "version": "0.2.0",
+  "abi": 1,
+  "library": "small-clone-original.so",
+  "instrument": false,
+  "category": "effect",
+  "source": {
+    "repository": "https://github.com/jurekbak71-dev/JerzySmallCloneChorus",
+    "commit": "0aa20a4f0584c674065bb191b45b73d97df5772d",
+    "original_files_sha256": {
+      "src/Dsp.h": "4cdbf7f806d34e17db887782c53def6112da728adea95e026010703b10a83954"
+    },
+    "import": "byte-for-byte DSP; native ABI wrapper is separate"
+  },
+  "compatibility": "reference-comparison-required",
+  "gui_normalized_choices": {
+    "model": [
+      "Small Clone",
+      "Clone Theory SAD",
+      "Clone Theory MN",
+      "Electric Mistress V2",
+      "Electric Mistress V3",
+      "Electric Mistress V4",
+      "Electric Mistress V5",
+      "Electric Mistress V6",
+      "Deluxe Mistress V1",
+      "Deluxe Mistress V2",
+      "Deluxe Mistress V3",
+      "Deluxe Mistress V4",
+      "Deluxe Mistress V5",
+      "Stereo Mistress Inspired"
+    ],
+    "division": [
+      "4 bars",
+      "2 bars",
+      "1 bar",
+      "1/2 D",
+      "1/2",
+      "1/2 T",
+      "1/4 D",
+      "1/4",
+      "1/4 T",
+      "1/8 D",
+      "1/8",
+      "1/8 T",
+      "1/16 D",
+      "1/16",
+      "1/16 T",
+      "1/32",
+      "1/32 T",
+      "1/64"
+    ],
+    "filter": [
+      "Wył.",
+      "Wł."
+    ],
+    "bypass": [
+      "Wył.",
+      "Wł."
+    ],
+    "sync": [
+      "Wył.",
+      "Wł."
+    ]
+  }
+}

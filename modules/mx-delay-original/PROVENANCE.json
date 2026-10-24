@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/jurekbak71-dev/JerzyMXAnalogDelayVST3",
+  "commit": "aed456883fce4448afa9767852ff9eb82d147dca",
+  "original_files_sha256": {
+    "source/mxdelay_dsp.h": "ff8def7b8c2402b1f0be53a8c0871a1858ad52e42f1a0c4d1a9df52a62384438",
+    "source/mxdelay_params.h": "648f2c9574be3d0e25d7c028612358dfdb21878ac3c69318822506eaa4dd3d32",
+    "source/mxdelay_mechanics.h": "adbc179ec6b779d2167bfbe65566411c5d9da6928b3c1b5bfda7afbee7dcfedc"
+  },
+  "import": "byte-for-byte DSP; native ABI wrapper is separate"
+}

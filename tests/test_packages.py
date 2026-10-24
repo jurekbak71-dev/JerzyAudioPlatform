@@ -22,6 +22,12 @@ class Packages(unittest.TestCase):
   file,sum=self.make();self.library.install(file,sum);file,sum=self.make('0.2.0');self.library.install(file,sum)
   os.replace(self.library.root/'utility-gain-meter',self.library.root/'utility-gain-meter.swapping')
   recovered=Library(self.library.root);self.assertEqual(recovered.list()[0]['version'],'0.2.0');recovered.rollback('utility-gain-meter');self.assertEqual(recovered.list()[0]['version'],'0.1.0')
+ def test_verified_original_package_import(self):
+  self.manifest=json.loads((ROOT/'modules/tape-drive-original/manifest.json').read_text());self.source=BUILD/'modules/tape-drive-original/tape-drive-original.so'
+  file,sum=self.make('0.2.0');self.library.install(file,sum);entry=self.library.list()[0];self.assertTrue(entry['compatibility']['passed']);self.assertFalse(entry['compatibility']['hardware_validated'])
+ def test_original_without_report_is_rejected(self):
+  self.manifest['id']='uncertified-original';self.manifest['library']='uncertified-original.so';file,sum=self.make('0.2.0')
+  with self.assertRaisesRegex(ValueError,'Brak raportu'):self.library.install(file,sum)
  def test_wrong_checksum_does_not_change_installation(self):
   file,sum=self.make();self.library.install(file,sum)
   with self.assertRaises(ValueError):self.library.install(file,'0'*64)

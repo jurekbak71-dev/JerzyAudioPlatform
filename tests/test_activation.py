@@ -30,7 +30,7 @@ class Activation(unittest.TestCase):
    def run(args,**kwargs):
     if 'is-active' in args:return subprocess.CompletedProcess(args,0 if args[-1] in active and '--user' not in args else 3)
     return subprocess.CompletedProcess(args,0)
-   with patch.object(control,'BASE',base),patch.object(control,'Jack',FakeJack),patch.object(control,'systemctl',ctl),patch.object(control,'manage',manage),patch.object(control,'units'),patch.object(control,'ready',side_effect=RuntimeError('forced readiness failure')),patch.object(control.subprocess,'run',side_effect=run):
+   with patch.object(control,'BASE',base),patch.object(control,'UNIT_DIR',base/'user-units'),patch.object(control,'Jack',FakeJack),patch.object(control,'systemctl',ctl),patch.object(control,'manage',manage),patch.object(control,'units'),patch.object(control,'ready',side_effect=RuntimeError('forced readiness failure')),patch.object(control.subprocess,'run',side_effect=run):
     with self.assertRaisesRegex(RuntimeError,'forced readiness failure'):control.activate()
    self.assertIn(old,active);self.assertFalse(set(control.UNITS)&active);self.assertEqual(connections,original)
    checkpoint=json.loads((base/'rollback.json').read_text());self.assertEqual(checkpoint['services'],[{'scope':'system','unit':old}]);self.assertEqual(checkpoint['connections'],original)

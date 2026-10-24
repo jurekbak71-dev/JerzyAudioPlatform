@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/jurekbak71-dev/JerzySmallCloneChorus",
+  "commit": "0aa20a4f0584c674065bb191b45b73d97df5772d",
+  "original_files_sha256": {
+    "src/Dsp.h": "4cdbf7f806d34e17db887782c53def6112da728adea95e026010703b10a83954"
+  },
+  "import": "byte-for-byte DSP; native ABI wrapper is separate"
+}

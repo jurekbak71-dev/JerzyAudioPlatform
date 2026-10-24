@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/jurekbak71-dev/JerzyMemoryDelay",
+  "commit": "3a3c4238463688cc6f5499b30abb6a09e4c1f68f",
+  "original_files_sha256": {
+    "source/dsp.h": "5a10fb0addaab7bfd8230c6135428331b6180159c5d2c0b907445dbab9847fbf",
+    "source/parameters.h": "6ba2cfeac920260560af303410bb07760b4a00050bb74433b6b6c17f0f454470"
+  },
+  "import": "byte-for-byte DSP; native ABI wrapper is separate"
+}

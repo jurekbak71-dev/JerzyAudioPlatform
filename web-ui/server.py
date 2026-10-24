@@ -22,17 +22,27 @@ class Application:
   return result
  def state(self):
   status=self.core('STATUS');status['nodes']=self.core('LIST')['nodes'];status['library']=self.library.list()
+  metadata={x['id']:x for x in status['library']}
+  for node in status['nodes']:
+   choices=metadata.get(node['module'],{}).get('gui_normalized_choices',{})
+   for parameter in node['parameters']:
+    if parameter['id'] in choices:parameter['normalized_choices']=choices[parameter['id']]
   status['presets']=[p.stem for p in sorted((self.data/'presets').glob('*.json'))]
   status['irs']=[p.name for p in sorted((self.data/'irs').glob('*.wav'))]
+  status['session_restore_pending']=json.loads((self.data/'session-recovery.json').read_text()).get('pending',False) if (self.data/'session-recovery.json').exists() else False
+  status['session_restore_error']=json.loads((self.data/'session-recovery.json').read_text()).get('error') if (self.data/'session-recovery.json').exists() else None
   status['module_presets']=[{'name':p.stem,'module':json.loads(p.read_text())['module']} for p in sorted((self.data/'module-presets').glob('*.json'))]
-  status['version']='0.1.0-dev';status['platform']=os.uname().machine
+  status['version']=((ROOT/'VERSION').read_text().strip() if (ROOT/'VERSION').exists() else '0.2.0')+'-dev';status['platform']=os.uname().machine
   try:
    pages=int(Path('/proc/self/statm').read_text().split()[1]);status['web_ram_mb']=pages*os.sysconf('SC_PAGE_SIZE')/1048576
   except (OSError,ValueError):pass
   return status
- def add(self,module,route,asset=''):
+ def add(self,module,route,asset='',allow_legacy=False):
   entry=next((x for x in self.library.list() if x['id']==module),None)
   if not entry:raise ValueError('Moduł nie jest zainstalowany')
+  if not allow_legacy and module not in ('utility-gain-meter','cab-ir'):
+   report=entry.get('compatibility')
+   if not isinstance(report,dict) or report.get('passed') is not True:raise ValueError('Ten moduł nie ma potwierdzonego porównania z oryginalnym DSP. Zainstaluj paczkę z końcówką -original.')
   if route not in (0,1):raise ValueError('Nieprawidłowy tor')
   assetPath=''
   if asset:
@@ -45,7 +55,7 @@ class Application:
   self.core('BEGIN')
   try:
    for node in value['nodes']:
-    id=self.add(node['module'],int(node['route']),Path(node.get('asset','')).name)['id']
+    id=self.add(node['module'],int(node['route']),Path(node.get('asset','')).name,allow_legacy=True)['id']
     # Parameter IDs must match the loaded version; unknown IDs are not silently ignored.
     actual=next(x for x in self.core('PENDING')['nodes'] if x['id']==id)
     if [x['id'] for x in actual['parameters']]!=[x['id'] for x in node['parameters']]:raise ValueError('Preset wymaga innej wersji parametrów modułu')
@@ -62,6 +72,7 @@ class Application:
   self.core('LIMITER '+str(int(value['limiter'])))
  def action(self,p):
   with self.lock:
+   if (self.data/'session-recovery.json').exists() and json.loads((self.data/'session-recovery.json').read_text()).get('pending'):raise ValueError('Trwa odtwarzanie sesji po starcie silnika. Poczekaj chwilę.')
    action=p['action']
    if action=='add':return self.add(p['module'],int(p['route']),p.get('asset',''))
    if action in ('remove','bypass','move'):
@@ -154,7 +165,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
    p=json.loads(self.rfile.read(size));app=self.server.app
    with app.lock:
     result=app.action(p)
-    state=app.state();state['schema']=1;atomic_json(app.data/'last-session.json',state)
+    if p['action'] in ('preset-save','preset-load') and (app.data/'session-recovery.json').exists():atomic_json(app.data/'session-recovery.json',{'error':None,'pending':False})
+    state=app.state();state['schema']=1
+    if not state.get('session_restore_error'):atomic_json(app.data/'last-session.json',state)
    self.send(200,result)
   except (OSError,ValueError,KeyError,subprocess.SubprocessError,StopIteration,zipfile.BadZipFile) as e:self.send(400,{'error':str(e)})
 def main():

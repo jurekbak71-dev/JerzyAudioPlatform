@@ -1,0 +1,16 @@
+{
+  "repository": "https://github.com/jurekbak71-dev/JerzyBigMuffCollectionVST3",
+  "commit": "d34128e75a9759c5847f5d93f8adbff9e7cf0549",
+  "original_files_sha256": {
+    "Source/MuffDSP.h": "4e7aa2f421927ecc176a70973b53f2aa667fdd707f6565602153f1b6a13586e2",
+    "Source/MuffProcessor.h": "de58c727228cd1bbe96e710dd9249beb0e36d5124c959f794da9f0a8b3e80001",
+    "Source/Circuit/AnalogCircuit.h": "1f82d9d49b5b30c352c51a6c1624eff5a3cfbc7edb64cd50ba1b9e8d2b4d4d2c",
+    "Source/Circuit/Catalog.h": "7dc1cd8cd5563989d1c5cf90564f9d5be20eb541fca2e9a2480c1c33b6020bd3"
+  },
+  "import": "byte-for-byte DSP; native ABI wrapper is separate",
+  "JUCE_dependency": {
+    "repository": "https://github.com/juce-framework/JUCE",
+    "commit": "4f43011b96eb0636104cb3e433894cda98243626",
+    "archive_sha256": "efaeeed2ca988d3ade7b21dd01dca5c79fd9a2fb5884ea6140b31a7a87e61053"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/jurekbak71-dev/JerzyAtomicClusterVST3",
+  "commit": "1cd1beeeb5ecc1763921e4c6c780cf4e960e1cc3",
+  "original_files_sha256": {
+    "src/Dsp.h": "5341578cad06aeeabafbfc8497a6ee9d7d800b79f2ea465143421840b57f477b"
+  },
+  "import": "byte-for-byte DSP; native ABI wrapper is separate"
+}

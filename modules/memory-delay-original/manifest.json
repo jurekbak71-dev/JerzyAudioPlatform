@@ -1,0 +1,68 @@
+{
+  "id": "memory-delay-original",
+  "name": "Jerzy Memory Delay — oryginalny DSP",
+  "version": "0.2.0",
+  "abi": 1,
+  "library": "memory-delay-original.so",
+  "instrument": false,
+  "category": "effect",
+  "source": {
+    "repository": "https://github.com/jurekbak71-dev/JerzyMemoryDelay",
+    "commit": "3a3c4238463688cc6f5499b30abb6a09e4c1f68f",
+    "original_files_sha256": {
+      "source/dsp.h": "5a10fb0addaab7bfd8230c6135428331b6180159c5d2c0b907445dbab9847fbf",
+      "source/parameters.h": "6ba2cfeac920260560af303410bb07760b4a00050bb74433b6b6c17f0f454470"
+    },
+    "import": "byte-for-byte DSP; native ABI wrapper is separate"
+  },
+  "compatibility": "reference-comparison-required",
+  "gui_normalized_choices": {
+    "model": [
+      "EH7500 / SAD",
+      "Issue A / SAD",
+      "Squelch / SAD",
+      "Deluxe / MN",
+      "Boy / BL",
+      "Toy / BL"
+    ],
+    "division": [
+      "1/1",
+      "1/1 D",
+      "1/1 T",
+      "1/2",
+      "1/2 D",
+      "1/2 T",
+      "1/4",
+      "1/4 D",
+      "1/4 T",
+      "1/8",
+      "1/8 D",
+      "1/8 T",
+      "1/16",
+      "1/16 D",
+      "1/16 T",
+      "1/32",
+      "1/32 D",
+      "1/32 T",
+      "1/64",
+      "1/64 D",
+      "1/64 T"
+    ],
+    "bypass": [
+      "Wył.",
+      "Wł."
+    ],
+    "boost": [
+      "Wył.",
+      "Wł."
+    ],
+    "modEnable": [
+      "Wył.",
+      "Wł."
+    ],
+    "tempoSync": [
+      "Wył.",
+      "Wł."
+    ]
+  }
+}

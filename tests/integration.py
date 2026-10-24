@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import argparse,json,os,platform,signal,socket,subprocess,sys,tempfile,time,urllib.request
+import argparse,json,os,platform,signal,socket,subprocess,sys,tempfile,time,urllib.request,shutil
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 def wait(fn,timeout=15):
@@ -49,7 +49,7 @@ def main():
    def get(path):return json.load(urllib.request.urlopen(url+path,timeout=5))
    token=wait(lambda:get('/api/session'))['token']
    def action(value):return json.load(urllib.request.urlopen(urllib.request.Request(url+'/api/action',json.dumps(value).encode(),{'Content-Type':'application/json','X-Jerzy-Token':token}),timeout=10))
-   s=get('/api/state');assert len(s['library'])==5 and len(s['nodes'])==1
+   s=get('/api/state');assert len(s['library'])>=5 and len(s['nodes'])==1
    action({'action':'module-preset-save','name':'Gain test','id':node})
    action({'action':'param','id':node,'index':0,'value':-20})
    action({'action':'module-preset-load','name':'Gain test','id':node})
@@ -65,7 +65,26 @@ def main():
    try:action({'action':'param','id':restored[0]['id'],'index':0,'value':999})
    except urllib.error.HTTPError as error:assert error.code==400
    else:raise AssertionError('invalid parameter accepted')
-   synth=action({'action':'add','module':'bass-ambient','route':1})['id'];nodes=get('/api/state')['nodes'];bass=next(n for n in nodes if n['id']==synth);idx=next(i for i,p in enumerate(bass['parameters']) if p['id']=='bass');action({'action':'param','id':synth,'index':idx,'value':1});time.sleep(.2);assert get('/api/state')['buses'][1]['peak']>0
+   synth=action({'action':'add','module':'bass-ambient-original','route':1})['id'];nodes=get('/api/state')['nodes'];bass=next(n for n in nodes if n['id']==synth);idx=next(i for i,p in enumerate(bass['parameters']) if p['id']=='bass');action({'action':'param','id':synth,'index':idx,'value':1});time.sleep(.2);assert get('/api/state')['buses'][1]['peak']>0
+   # Exercise the installed service entry without changing HOME or systemd.
+   payload=tmp/'payload';(payload/'bin').mkdir(parents=True);(payload/'bin/jerzy-audio-core').symlink_to(build/'jerzy-audio-core')
+   (payload/'web-ui').symlink_to(ROOT/'web-ui',target_is_directory=True)
+   base=tmp/'restart-data';base.mkdir();shutil.copytree(build/'modules',base/'modules')
+   (base/'audio-routing.json').write_text(json.dumps({'inputs':['system:capture_1','system:capture_2'],'outputs':['system:playback_1','system:playback_2']}))
+   saved=get('/api/state');saved['schema']=1;(base/'last-session.json').write_text(json.dumps(saved))
+   bootCode="import importlib.util,pathlib,sys; p="+repr(str(ROOT/'deploy/raspberry-pi/start_engine.py'))+"; s=importlib.util.spec_from_file_location('entry',p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); m.ROOT=pathlib.Path("+repr(str(payload))+"); m.BASE=pathlib.Path("+repr(str(base))+"); sys.exit(m.main())"
+   boot=start([sys.executable,'-c',bootCode],'bootstrap')
+   def restored():
+    report=base/'session-recovery.json'
+    if not report.exists():raise ValueError('pending')
+    recovery=json.loads(report.read_text())
+    if recovery.get('pending'):raise ValueError('pending')
+    assert not recovery.get('error'),recovery
+    value=command_socket(base/'core.sock','LIST')
+    if len(value['nodes'])!=len(saved['nodes']):raise ValueError('pending nodes')
+    return value
+   wait(restored);boot.terminate();boot.wait(timeout=10)
+   boot=start([sys.executable,'-c',bootCode],'bootstrap-restart');wait(restored);boot.terminate();boot.wait(timeout=10)
    if a.stress_seconds:
     # Capture real output throughout the run; pauses allow each fade to reopen.
     capture=subprocess.Popen([str(build/'jack-probe'),status['client'],str(int(a.stress_seconds*1000))],env=env,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
@@ -78,7 +97,7 @@ def main():
     captured=json.loads(capture.communicate(timeout=10)[0]);assert capture.returncode==0 and captured['rms']>.001,captured
     print(json.dumps({'stress_seconds':a.stress_seconds,'graph_cycles':cycles,'captured_audio':captured,'status':core('STATUS')},indent=2))
    if a.browser:subprocess.run(['node',str(ROOT/'tests/ui.cjs'),url,str(ROOT/'docs/panel-mobile.png')],env=env,check=True)
-   print(json.dumps({'result':'PASS','checks':['JACK ports and unique names','real audio gain and bypass','native MIDI CC learn','module preset restore','live graph add/move/remove','HTTP panel','session save/load with Unicode','failed graph transaction','invalid parameter rejection','BassAmbient in independent instrument bus'],'audio':{'baseline':baseline,'gain_minus_12dB':quiet,'bypass':bypass},'status':core('STATUS')},ensure_ascii=False,indent=2))
+   print(json.dumps({'result':'PASS','checks':['JACK ports and unique names','real audio gain and bypass','native MIDI CC learn','module preset restore','live graph add/move/remove','HTTP panel','session save/load with Unicode','failed graph transaction','invalid parameter rejection','BassAmbient in independent instrument bus','service entry restores graph after engine restart'],'audio':{'baseline':baseline,'gain_minus_12dB':quiet,'bypass':bypass},'status':core('STATUS')},ensure_ascii=False,indent=2))
   except BaseException:
    for log in tmp.glob('*.log'):print(log.name,log.read_text()[-3000:],file=sys.stderr)
    raise
@@ -90,5 +109,10 @@ def main():
      except subprocess.TimeoutExpired:proc.kill();proc.wait()
 def command_socket(path,command):
  with socket.socket(socket.AF_UNIX) as s:
-  s.settimeout(3);s.connect(str(path));s.sendall((command+'\n').encode());return json.loads(s.recv(65536))
+  s.settimeout(3);s.connect(str(path));s.sendall((command+'\n').encode());raw=b''
+  while not raw.endswith(b'\n'):
+   chunk=s.recv(65536)
+   if not chunk:raise ValueError('socket closed')
+   raw+=chunk
+  return json.loads(raw)
 if __name__=='__main__':main()

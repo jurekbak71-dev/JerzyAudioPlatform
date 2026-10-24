@@ -1,0 +1,315 @@
+{
+  "id": "mx-delay-original",
+  "name": "Jerzy Mx Delay — oryginalny DSP",
+  "version": "0.2.0",
+  "abi": 1,
+  "library": "mx-delay-original.so",
+  "instrument": false,
+  "category": "effect",
+  "source": {
+    "repository": "https://github.com/jurekbak71-dev/JerzyMXAnalogDelayVST3",
+    "commit": "aed456883fce4448afa9767852ff9eb82d147dca",
+    "original_files_sha256": {
+      "source/mxdelay_dsp.h": "ff8def7b8c2402b1f0be53a8c0871a1858ad52e42f1a0c4d1a9df52a62384438",
+      "source/mxdelay_params.h": "648f2c9574be3d0e25d7c028612358dfdb21878ac3c69318822506eaa4dd3d32",
+      "source/mxdelay_mechanics.h": "adbc179ec6b779d2167bfbe65566411c5d9da6928b3c1b5bfda7afbee7dcfedc"
+    },
+    "import": "byte-for-byte DSP; native ABI wrapper is separate"
+  },
+  "compatibility": "reference-comparison-required",
+  "gui_normalized_choices": {
+    "routing": [
+      "Szeregowo",
+      "Równolegle",
+      "Podział L/R"
+    ],
+    "bypass": [
+      "Wył.",
+      "Wł."
+    ],
+    "spill": [
+      "Wył.",
+      "Wł."
+    ],
+    "machineCondition": [
+      "Po serwisie",
+      "Używany",
+      "Zużyty",
+      "Uszkodzony"
+    ],
+    "fx0_type": [
+      "Wył.",
+      "Chorus",
+      "Flanger",
+      "Lo-Fi",
+      "Overdrive",
+      "Granular"
+    ],
+    "fx0_route": [
+      "Wejście / przed",
+      "Tylko efekt"
+    ],
+    "fx1_type": [
+      "Wył.",
+      "Chorus",
+      "Flanger",
+      "Lo-Fi",
+      "Overdrive",
+      "Granular"
+    ],
+    "fx1_route": [
+      "Wejście / przed",
+      "Tylko efekt"
+    ],
+    "fx2_type": [
+      "Wył.",
+      "Chorus",
+      "Flanger",
+      "Lo-Fi",
+      "Overdrive",
+      "Granular"
+    ],
+    "fx2_route": [
+      "Wejście / przed",
+      "Tylko efekt"
+    ],
+    "fx3_type": [
+      "Wył.",
+      "Chorus",
+      "Flanger",
+      "Lo-Fi",
+      "Overdrive",
+      "Granular"
+    ],
+    "fx3_route": [
+      "Wejście / przed",
+      "Tylko efekt"
+    ],
+    "slot0_algorithm": [
+      "MultiHead Reel",
+      "Tape Echo",
+      "Oil Can",
+      "Tube Echo",
+      "BBD",
+      "Doubletrack",
+      "Dual Digital",
+      "Space Echo 202",
+      "BBD Machine 101"
+    ],
+    "slot0_enable": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot0_sync": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot0_division": [
+      "1/1",
+      "1/2.",
+      "1/2",
+      "1/4.",
+      "1/4",
+      "1/8.",
+      "1/8",
+      "1/4T",
+      "1/16",
+      "1/8T"
+    ],
+    "slot0_algo0_6": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot0_algo0_7": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot0_algo0_8": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot0_algo0_9": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot0_algo0_10": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot0_algo0_11": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot0_algo0_12": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot0_algo0_13": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot0_algo7_8": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot0_algo7_9": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot0_algo7_10": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot0_algo7_11": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot0_algo1_7": [
+      "Fixed",
+      "Multi",
+      "Single"
+    ],
+    "slot0_algo4_0": [
+      "3205",
+      "3005",
+      "Multi"
+    ],
+    "slot0_algo5_3": [
+      "Sum",
+      "Invert",
+      "Bounce"
+    ],
+    "slot0_algo6_0": [
+      "24/96",
+      "ADM",
+      "12 bit"
+    ],
+    "slot0_algo8_0": [
+      "Classic",
+      "Vintage",
+      "Modern",
+      "Multi-head",
+      "Non-linear",
+      "Ambience",
+      "Reflect",
+      "Doubling+delay",
+      "Wide",
+      "Dual mod",
+      "Pan",
+      "Pattern"
+    ],
+    "slot1_algorithm": [
+      "MultiHead Reel",
+      "Tape Echo",
+      "Oil Can",
+      "Tube Echo",
+      "BBD",
+      "Doubletrack",
+      "Dual Digital",
+      "Space Echo 202",
+      "BBD Machine 101"
+    ],
+    "slot1_enable": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot1_sync": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot1_division": [
+      "1/1",
+      "1/2.",
+      "1/2",
+      "1/4.",
+      "1/4",
+      "1/8.",
+      "1/8",
+      "1/4T",
+      "1/16",
+      "1/8T"
+    ],
+    "slot1_algo0_6": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot1_algo0_7": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot1_algo0_8": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot1_algo0_9": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot1_algo0_10": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot1_algo0_11": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot1_algo0_12": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot1_algo0_13": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot1_algo7_8": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot1_algo7_9": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot1_algo7_10": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot1_algo7_11": [
+      "Wył.",
+      "Wł."
+    ],
+    "slot1_algo1_7": [
+      "Fixed",
+      "Multi",
+      "Single"
+    ],
+    "slot1_algo4_0": [
+      "3205",
+      "3005",
+      "Multi"
+    ],
+    "slot1_algo5_3": [
+      "Sum",
+      "Invert",
+      "Bounce"
+    ],
+    "slot1_algo6_0": [
+      "24/96",
+      "ADM",
+      "12 bit"
+    ],
+    "slot1_algo8_0": [
+      "Classic",
+      "Vintage",
+      "Modern",
+      "Multi-head",
+      "Non-linear",
+      "Ambience",
+      "Reflect",
+      "Doubling+delay",
+      "Wide",
+      "Dual mod",
+      "Pan",
+      "Pattern"
+    ]
+  }
+}

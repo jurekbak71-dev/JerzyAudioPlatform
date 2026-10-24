@@ -1,3 +1,7 @@
+# Aktualizacja 0.2.0
+
+Bieżący zakres i nadal otwarte ograniczenia opisuje [raport 0.2](ORYGINALNE_DSP_0.2.md). Poniższa lista jest historycznym stanem 0.1; oryginalne DSP, pojedyncze moduły i publikacja zostały od tego czasu uzupełnione.
+
 # Co pozostaje do pełnego odbioru
 
 To wydanie rozwojowe nie spełnia jeszcze całej specyfikacji WYMAGANIA.md.
