@@ -25,13 +25,18 @@ class Application:
   metadata={x['id']:x for x in status['library']}
   for node in status['nodes']:
    choices=metadata.get(node['module'],{}).get('gui_normalized_choices',{})
+   groups=metadata.get(node['module'],{}).get('parameter_groups',{})
    for parameter in node['parameters']:
+    parameter['group']=groups.get(parameter['id'],-1)
+    if node['module']=='bass-ambient-pro-original' and parameter['id']=='performanceSource':parameter['choices']='Legacy|MIDI|JAM'
+    if node['module']=='bass-ambient-pro-original' and parameter['id']=='clockSource':parameter['choices']='Wewnętrzny|Host JACK'
     if parameter['id'] in choices:parameter['normalized_choices']=choices[parameter['id']]
   status['presets']=[p.stem for p in sorted((self.data/'presets').glob('*.json'))]
   status['irs']=[p.name for p in sorted((self.data/'irs').glob('*.wav'))]
   status['session_restore_pending']=json.loads((self.data/'session-recovery.json').read_text()).get('pending',False) if (self.data/'session-recovery.json').exists() else False
   status['session_restore_error']=json.loads((self.data/'session-recovery.json').read_text()).get('error') if (self.data/'session-recovery.json').exists() else None
   status['module_presets']=[{'name':p.stem,'module':json.loads(p.read_text())['module']} for p in sorted((self.data/'module-presets').glob('*.json'))]
+  status['thru_jack_disabled']=json.loads((self.data/'thru-jack.json').read_text()).get('disabled',False) if (self.data/'thru-jack.json').exists() else False
   status['version']=((ROOT/'VERSION').read_text().strip() if (ROOT/'VERSION').exists() else '0.2.0')+'-dev';status['platform']=os.uname().machine
   try:
    pages=int(Path('/proc/self/statm').read_text().split()[1]);status['web_ram_mb']=pages*os.sysconf('SC_PAGE_SIZE')/1048576
@@ -40,6 +45,7 @@ class Application:
  def add(self,module,route,asset='',allow_legacy=False):
   entry=next((x for x in self.library.list() if x['id']==module),None)
   if not entry:raise ValueError('Moduł nie jest zainstalowany')
+  if not allow_legacy and module=='bass-ambient-original':raise ValueError('To wersja bez PRO, zachowana dla starszych sesji. Wybierz Bass Ambient PRO — modalny DSP.')
   if not allow_legacy and module not in ('utility-gain-meter','cab-ir'):
    report=entry.get('compatibility')
    if not isinstance(report,dict) or report.get('passed') is not True:raise ValueError('Ten moduł nie ma potwierdzonego porównania z oryginalnym DSP. Zainstaluj paczkę z końcówką -original.')
@@ -58,7 +64,7 @@ class Application:
     id=self.add(node['module'],int(node['route']),Path(node.get('asset','')).name,allow_legacy=True)['id']
     # Parameter IDs must match the loaded version; unknown IDs are not silently ignored.
     actual=next(x for x in self.core('PENDING')['nodes'] if x['id']==id)
-    if [x['id'] for x in actual['parameters']]!=[x['id'] for x in node['parameters']]:raise ValueError('Preset wymaga innej wersji parametrów modułu')
+    if [x['id'] for x in actual['parameters'][:len(node['parameters'])]]!=[x['id'] for x in node['parameters']]:raise ValueError('Preset wymaga innej wersji parametrów modułu')
     # Presets store both ABI parameter positions and stable IDs. Metadata was captured at save time.
     for i,p in enumerate(node['parameters']):
      self.core(f'PARAM {id} {i} {float(p["value"])}')
@@ -72,13 +78,26 @@ class Application:
   self.core('LIMITER '+str(int(value['limiter'])))
  def action(self,p):
   with self.lock:
-   if (self.data/'session-recovery.json').exists() and json.loads((self.data/'session-recovery.json').read_text()).get('pending'):raise ValueError('Trwa odtwarzanie sesji po starcie silnika. Poczekaj chwilę.')
+   if p['action'] not in ('restart-audio','recover-audio') and (self.data/'session-recovery.json').exists() and json.loads((self.data/'session-recovery.json').read_text()).get('pending'):raise ValueError('Trwa odtwarzanie sesji po starcie silnika. Poczekaj chwilę.')
    action=p['action']
+   if action=='thru':
+    if not self.args.audio_helper:raise ValueError('Sterowanie THRU dostępne po instalacji na Pi')
+    result=subprocess.run([sys.executable,self.args.audio_helper,'thru-on' if p.get('value') else 'thru-off'],check=True,timeout=10,capture_output=True,text=True)
+    return json.loads(result.stdout)
+   if action in ('restart-audio','recover-audio'):
+    if not self.args.audio_helper:raise ValueError('Restart dostępny po instalacji na Pi')
+    subprocess.run([sys.executable,self.args.audio_helper,'recover' if action=='recover-audio' else 'restart'],check=True,timeout=35)
+    return {'ok':True}
    if action=='add':return self.add(p['module'],int(p['route']),p.get('asset',''))
    if action in ('remove','bypass','move'):
     id=int(p['id']);cmd={'remove':'REMOVE','bypass':'BYPASS','move':'MOVE'}[action];tail='' if action=='remove' else ' '+str(int(p['value']));return self.core(f'{cmd} {id}{tail}')
    if action=='learn':return self.core(f'LEARN {int(p["id"])} {int(p["index"])}')
-   if action=='param':return self.core(f'PARAM {int(p["id"])} {int(p["index"])} {float(p["value"])}')
+   if action=='param':
+    node=next(n for n in self.core('LIST')['nodes'] if n['id']==int(p['id']))
+    parameter=node['parameters'][int(p['index'])]
+    if node['module']=='bass-ambient-pro-original' and ((parameter['id'] in ('composerEnabled','composerPlaying','separateOutputs','midiPlayback') and float(p['value'])!=0) or (parameter['id']=='performanceSource' and float(p['value'])==3)):
+     raise ValueError('Aranżer, eksport i osobne wyjścia VST nie są jeszcze przeniesione do panelu Pi')
+    return self.core(f'PARAM {int(p["id"])} {int(p["index"])} {float(p["value"])}')
    if action=='mix':return self.core(f'MIX {int(p["route"])} {float(p["gain"])} {float(p["pan"])} {int(p["mute"])} {int(p["solo"])}')
    if action in ('master','bpm','ceiling','limiter'):return self.core(action.upper()+' '+str(float(p['value']) if action!='limiter' else int(p['value'])))
    if action in ('module-preset-save','module-preset-load'):
@@ -89,7 +108,7 @@ class Application:
     if action=='module-preset-save':atomic_json(file,node)
     else:
      saved=json.loads(file.read_text())
-     if saved['module']!=node['module'] or [x['id'] for x in saved['parameters']]!=[x['id'] for x in node['parameters']]:raise ValueError('Preset wymaga innego modułu lub wersji parametrów')
+     if saved['module']!=node['module'] or [x['id'] for x in saved['parameters']]!=[x['id'] for x in node['parameters'][:len(saved['parameters'])]]:raise ValueError('Preset wymaga innego modułu lub wersji parametrów')
      import math
      for actual,stored in zip(node['parameters'],saved['parameters']):
       value=float(stored['value'])
@@ -132,10 +151,9 @@ class Application:
     snapshot=self.state();snapshot['schema']=1
     try:
      subprocess.run([sys.executable,self.args.audio_helper,'buffer',str(size)],check=True,timeout=60)
-     self.apply_preset(snapshot)
+     # JACK preserves the live graph and module state.
     except BaseException:
      subprocess.run([sys.executable,self.args.audio_helper,'buffer',str(snapshot['buffer'])],check=False,timeout=60)
-     self.apply_preset(snapshot)
      raise
     return {'ok':True}
    raise ValueError('Nieznana operacja')
@@ -169,7 +187,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     state=app.state();state['schema']=1
     if not state.get('session_restore_error'):atomic_json(app.data/'last-session.json',state)
    self.send(200,result)
-  except (OSError,ValueError,KeyError,subprocess.SubprocessError,StopIteration,zipfile.BadZipFile) as e:self.send(400,{'error':str(e)})
+  except (OSError,ValueError,KeyError,IndexError,subprocess.SubprocessError,StopIteration,zipfile.BadZipFile) as e:self.send(400,{'error':str(e)})
 def main():
  p=argparse.ArgumentParser();p.add_argument('--socket',default='/tmp/jerzy-audio-platform.sock');p.add_argument('--modules',default=str(ROOT/'modules'));p.add_argument('--data',default=str(Path.home()/'.local/share/jerzy-audio-platform'));p.add_argument('--host',default='127.0.0.1');p.add_argument('--port',type=int,default=8093);p.add_argument('--audio-helper');p.add_argument('--restore',action='store_true');args=p.parse_args()
  app=Application(args)

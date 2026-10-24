@@ -1,10 +1,10 @@
-# Jerzy Audio Platform 0.2.0
+# Jerzy Audio Platform 0.2.1
 
 Modułowy host JACK2 dla Raspberry Pi, pełne oryginalne DSP oraz polski panel WWW na porcie 8093. Dotychczasowe repozytoria i ich źródła pozostają bez zmian.
 
 ## Instalacja i aktualizacja
 
-**[Pobierz instalator Windows 0.2.0](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/download/v0.2.0-preview.1/JerzyAudioPlatform-v0.2.0-Windows-Installer.zip)** · [Wszystkie paczki](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/tag/v0.2.0-preview.1)
+**[Pobierz instalator Windows 0.2.1](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/download/v0.2.1-preview.1/JerzyAudioPlatform-v0.2.1-Windows-Installer.zip)** · [Wszystkie paczki](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/tag/v0.2.1-preview.1)
 
 1. Rozpakuj cały ZIP i kliknij `START-INSTALACJA.cmd`.
 2. Podaj aktualne IP Pi i hasło. Po udanym stagingu wpisz `TAK`, aby aktywować aktualizację.
@@ -12,6 +12,10 @@ Modułowy host JACK2 dla Raspberry Pi, pełne oryginalne DSP oraz polski panel W
 4. `INSTALUJ-MODUL.cmd` instaluje wybrane pojedyncze paczki z katalogu SHA256. W panelu: **ŁAŃCUCH → tor → Dodaj moduł**.
 
 [Instrukcja modułów i Wi-Fi](docs/MODULY_I_WIFI_PL.html). Pi nie potrzebuje internetu podczas instalacji; JACK i systemowe biblioteki muszą być wcześniej dostępne. Aktywacja zachowuje punkt przywracania poprzedniej wersji i ustawienia użytkownika.
+
+## Naprawy po testach Pi
+
+[Instrukcja aktualizacji i zakres napraw 0.2.1](docs/NAPRAWY_0.2.1_PL.md). Zmiana bufora zachowuje żywy graf. Panel ma przyciski odzyskiwania audio, ochronę przeciążenia, czytelny CAB/IR i nowe sekcje studyjne. Głośność instrumentów jest na górze, MX pokazuje tylko parametry wybranego algorytmu.
 
 ## Oryginalne moduły
 
@@ -21,7 +25,8 @@ Modułowy host JACK2 dla Raspberry Pi, pełne oryginalne DSP oraz polski panel W
 - **small-clone-original** — 14 modeli i synchronizacja.
 - **atomic-cluster-original** — oryginalna analiza FFT i resynteza do 64 atomów.
 - **memory-delay-original** — pełny oryginalny silnik Memory Delay.
-- **bass-ambient-original** — oryginalny rdzeń i wszystkie parametry, MIDI, sekwencje oraz trzy racki FX.
+- **bass-ambient-pro-original** — PRO z modalnym DSP: Bass, Ambient, Arp, Drums, Krell, racki FX i mikser. Źródło `673e0def70d0`, oddzielny wątek zasobów FX. Composer, eksport i funkcje hosta VST pozostają poza portem.
+- **bass-ambient-original** — wcześniejszy instrument bez PRO, zachowany dla poprzednich sesji; nie jest oferowany do nowych łańcuchów.
 
 Każdy moduł jest osobnym `.jamod`; można go instalować, usuwać i aktualizować bez przebudowy hosta. Raport porównania jest związany z SHA256 konkretnego ELF i przypiętym commitem źródłowym. Nowy interfejs nie oferuje dodawania wcześniejszych demonstracyjnych zamienników jako oryginalnych efektów. Istniejące sesje można nadal odtworzyć.
 

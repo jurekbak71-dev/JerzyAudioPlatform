@@ -1,7 +1,7 @@
 {
   "id": "memory-delay-original",
   "name": "Jerzy Memory Delay — oryginalny DSP",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "abi": 1,
   "library": "memory-delay-original.so",
   "instrument": false,

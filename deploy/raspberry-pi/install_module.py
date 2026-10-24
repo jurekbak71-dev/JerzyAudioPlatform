@@ -14,6 +14,8 @@ def main():
   if not release.is_relative_to(BASE/'releases'):raise RuntimeError('Niepoprawna ścieżka aktywnego systemu.')
   sys.path.insert(0,str(release/'module-manager'));from manager import Library
   with zipfile.ZipFile(a.package) as archive:manifest=json.loads(archive.read('manifest.json'))
+  minimum=manifest.get('minimum_host_version')
+  if minimum and tuple(map(int,state['version'].split('-')[0].split('.')))<tuple(map(int,minimum.split('.'))):raise RuntimeError('Ta paczka wymaga aktualizacji hosta do '+minimum)
   if not manifest['id'].endswith('-original'):raise RuntimeError('Ten instalator przyjmuje wyłącznie zweryfikowane paczki oryginalnego DSP.')
   if any(n['module']==manifest['id'] for n in state['nodes']):raise RuntimeError('Najpierw usuń instancje tego modułu z łańcuchów; pozostałe audio może działać.')
   Library(BASE/'modules').install(a.package,a.sha256)

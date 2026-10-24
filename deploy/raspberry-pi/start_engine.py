@@ -29,6 +29,17 @@ def main():
   except (OSError,RuntimeError):pass
   if time.monotonic()>=end:raise RuntimeError('JACK nie potwierdził portów; nie uruchomiono drugiego serwera')
   time.sleep(1)
+ settings=BASE/'audio-settings.json'
+ if settings.exists():
+  desired=json.loads(settings.read_text()).get('buffer')
+  if desired in (64,128,256,512,1024):
+   import ctypes
+   jack=Jack()
+   try:
+    jack.lib.jack_set_buffer_size.argtypes=[ctypes.c_void_p,ctypes.c_uint]
+    jack.lib.jack_set_buffer_size.restype=ctypes.c_int
+    if jack.lib.jack_set_buffer_size(jack.client,desired):raise RuntimeError('Nie przywrócono zapisanego bufora JACK')
+   finally:jack.close()
  path=BASE/'core.sock'
  if path.exists():
   import stat
@@ -52,7 +63,8 @@ def main():
    if time.monotonic()>=end:raise RuntimeError('Brak gotowości silnika')
    time.sleep(.1)
   recovery=BASE/'session-recovery.json';session_error=None
-  if (BASE/'last-session.json').exists():
+  skip=BASE/'skip-session-once'
+  if (BASE/'last-session.json').exists() and not skip.exists():
    try:
     sys.path.insert(0,str(ROOT/'web-ui'));from server import Application
     args=argparse.Namespace(data=str(BASE),modules=str(BASE/'modules'),socket=str(path))
@@ -66,9 +78,29 @@ def main():
     for i,source in enumerate(routing.get('inputs',[])):jack.connect(source,status['client']+':wejscie_'+str(i+1))
     for i,target in enumerate(routing.get('outputs',[])):jack.connect(status['client']+':wyjscie_'+str(i+1),target)
    finally:jack.close()
+  thru=BASE/'thru-jack.json'
+  if thru.exists() and json.loads(thru.read_text()).get('disabled'):
+   jack=Jack()
+   try:
+    for source,target in jack.direct_thru():jack.disconnect(source,target)
+   finally:jack.close()
   atomic_json(recovery,{'error':session_error,'pending':False})
+  if skip.exists():skip.unlink()
   print('Silnik, odtworzenie sesji i routing przygotowane.',flush=True)
-  return process.wait()
+  last_blocks=core('STATUS')['blocks'];last_progress=time.monotonic()
+  while process.poll() is None:
+   time.sleep(.5)
+   try:
+    status=core('STATUS')
+    if status['blocks']!=last_blocks:last_blocks=status['blocks'];last_progress=time.monotonic()
+   except (OSError,ValueError,RuntimeError):pass
+   if time.monotonic()-last_progress>10:
+    print('Brak postępu audio: restart procesu silnika.',flush=True)
+    process.terminate()
+    try:process.wait(timeout=2)
+    except subprocess.TimeoutExpired:process.kill();process.wait()
+    return 70
+  return process.returncode
  finally:
   if process.poll() is None:
    process.terminate()

@@ -78,4 +78,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" release/* --verify-tag --prerelease --title "Jerzy Audio Platform — wersja testowa $RELEASE_TAG" --notes "Paczki testowe. Testy fizycznego Raspberry Pi, HeadRush, Windows instalacji i Safari pozostają do wykonania. Przeczytaj instrukcję oraz znane ograniczenia przed aktywacją."
+          gh release create "$RELEASE_TAG" release/* --verify-tag --prerelease --title "Jerzy Audio Platform — wersja testowa $RELEASE_TAG" --notes-file release/RELEASE-NOTES.md

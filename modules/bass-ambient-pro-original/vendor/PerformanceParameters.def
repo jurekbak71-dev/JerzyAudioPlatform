@@ -1,0 +1,8 @@
+// Appended IDs preserve all previous PRO host parameter indices and legacy routing.
+BOOL(modularMidi,"Route MIDI by instrument",26)
+CHOICE(bassMidiMode,"Bass MIDI performance",26,"Notes|Generator")
+CHOICE(padMidiMode,"Ambient MIDI performance",26,"Notes|Generator")
+CHOICE(arpMidiMode,"Arp MIDI performance",26,"Notes|Generator")
+CHOICE(krellMidiMode,"Krell MIDI performance",26,"Notes|Generator")
+CHOICE(drumsMidiMode,"Drums MIDI performance",26,"Notes|Sequencer")
+CHOICE(performanceSource,"Performance source",26,"Legacy|MIDI|JAM|Arranger")

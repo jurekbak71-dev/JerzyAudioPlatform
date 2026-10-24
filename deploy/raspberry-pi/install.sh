@@ -20,6 +20,7 @@ for binary in "$root"/tests/compare-*; do
  [ -f "$binary" ] || continue
  nice -n 10 "$binary" "$root/modules" >> "$root/module-tests.log" 2>&1 || { cat "$root/module-tests.log"; exit 1; }
 done
+nice -n 10 "$root/tests/module-health" "$root/modules" >> "$root/module-tests.log" 2>&1 || { cat "$root/module-tests.log"; exit 1; }
 base="$HOME/.local/share/jerzy-audio-platform"
 mkdir -p "$base/releases" "$base/presets" "$base/irs" "$base/modules"
 # Do not overwrite a prior release or an interrupted installation.

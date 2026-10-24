@@ -19,4 +19,4 @@ extern "C" const JAModule* ja_module(){static const auto defaults=atomiccluster:
 {"tapEnabled","Tap tempo","0–1","",0,1,float(defaults[9]),0},
 {"motion","Ruch atomów","0–1","",0,1,float(defaults[10]),0},
 {"stereo","Ruch stereo","0–1","",0,1,float(defaults[11]),0}
-};static const JAModule m{sizeof(JAModule),JA_ABI,"atomic-cluster-original","Jerzy atomic cluster — oryginalny DSP","0.2.0",0,NumParams,params,create,destroy,process,latency};return &m;}
+};static const JAModule m{sizeof(JAModule),JA_ABI,"atomic-cluster-original","Jerzy atomic cluster — oryginalny DSP","0.2.1",0,NumParams,params,create,destroy,process,latency};return &m;}

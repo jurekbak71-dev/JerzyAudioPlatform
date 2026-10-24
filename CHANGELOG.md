@@ -1,3 +1,7 @@
+## 0.2.1 — naprawy po odsłuchu na Pi
+
+Żywa zmiana bufora, odzyskiwanie audio z panelu, ochrona przed przeciążeniem modułu, poprawiony wybór modeli Muff, widoczny CAB/IR z dodatkowymi kontrolkami, PRO z modalnym DSP i uporządkowany studyjny GUI. Oficjalne starsze moduły są aktualizowane po zatrzymaniu hosta, z kopią do rollbacku. Szczegóły i zakres: docs/NAPRAWY_0.2.1_PL.md.
+
 ## Poprawka Wi-Fi po 0.2.0-preview.1
 
 Oczekiwanie do 60 sekund na IPv4 po aktywacji NetworkManager (IPv6 może być gotowe wcześniej). Naprawia przedwczesne przywracanie hotspotu podczas DHCP/ACD. Dodano test opóźnionego DHCP i jego timeoutu. Mała paczka: downloads/Jerzy-WiFi-Domowe-Poprawka.zip.

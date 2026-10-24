@@ -26,6 +26,13 @@ class Jack:
  def connect(self,source,dest):
   code=self.lib.jack_connect(self.client,source.encode(),dest.encode())
   if code not in (0,17):raise RuntimeError('Nie można połączyć '+source+' → '+dest)
+ def direct_thru(self):
+  audio=b'32 bit float mono audio'
+  sources=set(self.strings(self.lib.jack_get_ports(self.client,None,audio,2|4)));targets=set(self.strings(self.lib.jack_get_ports(self.client,None,audio,1|4)))
+  return [pair for pair in self.connections() if pair[0] in sources and pair[1] in targets]
+ def disconnect(self,source,dest):
+  code=self.lib.jack_disconnect(self.client,source.encode(),dest.encode())
+  if code not in (0,2):raise RuntimeError('Nie można rozłączyć '+source+' → '+dest)
  def restore(self,connections):
   available=set(self.ports())
   for source,dest in connections:

@@ -21,7 +21,7 @@ class OriginalMuffDSP {
 public:
  int latencyFrames=0;
  std::array<std::atomic<float>,6> controls;
- OriginalMuffDSP(){const float d[]{.5,.5,.5,0,0,float(circuitCount)};for(int i=0;i<6;++i)controls[i].store(d[i]);volumeParam=&controls[0];toneParam=&controls[1];sustainParam=&controls[2];modelParam=&controls[3];bypassParam=&controls[4];circuitParam=&controls[5];}
+ OriginalMuffDSP(){const float d[]{.5,.5,.5,0,0,0};for(int i=0;i<6;++i)controls[i].store(d[i]);volumeParam=&controls[0];toneParam=&controls[1];sustainParam=&controls[2];modelParam=&controls[3];bypassParam=&controls[4];circuitParam=&controls[5];}
  int selectedModel() const {int c=juce::jlimit(0,int(circuitCount),int(circuitParam->load()));return c==0?juce::jlimit(0,5,int(modelParam->load())):5+c;}
  bool isReady() const{return ready;}
     void prepareToPlay(double rate,int size) {

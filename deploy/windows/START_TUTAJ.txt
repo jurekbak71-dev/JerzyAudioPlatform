@@ -1,21 +1,10 @@
-JERZY AUDIO PLATFORM 0.2.0 — ORYGINALNE MODUŁY I DOMOWE WI-FI
+JERZY AUDIO PLATFORM 0.2.1
 
-1. Rozpakuj cały ZIP. Uruchom START-INSTALACJA.cmd.
-2. Podaj aktualne IP Pi i hasło SSH. Po poprawnym stagingu wpisz TAK.
-3. Do zmiany sieci użyj WIFI-DOMOWE.cmd. Nie kasuj hotspotu.
-   Po przełączeniu Windows na domowe Wi-Fi potwierdź nowe IP w ciągu 5 minut.
-4. Do pojedynczych paczek użyj INSTALUJ-MODUL.cmd i wskaż pliki .jamod.
-   W panelu: ŁAŃCUCH → tor → Dodaj moduł.
+1. Aktualizacja: START-INSTALACJA.cmd, potem TAK.
+2. Otworz MODULY_I_WIFI_PL.html.
+3. W panelu SYSTEM ustaw 256 lub 512 probek; testuj po jednym efekcie.
+4. Nowy instrument: Bass Ambient PRO - modalny DSP. Stara wersja bez PRO pozostaje tylko dla poprzednich sesji.
+5. Gdy Wi-Fi i autostart juz dzialaja, nie konfiguruj ich ponownie.
+6. Restart i odzyskanie pustego toru sa teraz w panelu.
 
-Czytelna instrukcja: MODULY_I_WIFI_PL.html.
-AKTYWUJ.cmd — aktywacja przygotowanej paczki.
-PRZYWROC-MULTIFX.cmd — poprzednie usługi z ostatniego punktu przywracania.
-NAPRAW-I-AKTYWUJ.cmd — odzyskiwanie JACK po zniknięciu HeadRush z USB.
-DIAGNOSTYKA.cmd — stan urządzenia.
-OTWORZ-PANEL.cmd — panel na aktualnym IP.
-
-Paczki -original zawierają pełny DSP oryginalnych wtyczek, oddzielny adapter
-ABI i wyniki porównań. Nie są to pliki Windows VST3 ani kopia ich GUI.
-Testy DSP nie zastępują pomiarów XRUN i odsłuchów na Twoim Pi.
-Wymagane: ARM64, glibc >= 2.36, libstdc++ z GCC >= 12, Python >= 3.9,
-działający JACK2 i libjack.so.0. Brak zależności zatrzymuje staging.
+Oryginalne DSP moze przekroczyc moc Pi. Wydanie testowe: wymaga sprawdzenia odsluchowego na Twoim sprzecie.

@@ -1,7 +1,7 @@
 {
   "id": "small-clone-original",
   "name": "Jerzy Small Clone — oryginalny DSP",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "abi": 1,
   "library": "small-clone-original.so",
   "instrument": false,

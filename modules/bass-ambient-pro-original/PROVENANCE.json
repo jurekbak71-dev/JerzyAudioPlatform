@@ -1,0 +1,16 @@
+{
+  "repository": "https://github.com/jurekbak71-dev/JerzyBassAmbientVST3",
+  "commit": "673e0def70d06e29d35ba3e69c40d04f0e9c9abf",
+  "original_files_sha256": {
+    "PRO/Source/Core.h": "a61ada56a9ab51802a8c4f6d87e24585dae95037af2402aac6a5ebdda1f90305",
+    "PRO/Source/ProEngines.h": "558cc777dc6a6592e894490c49e48040941cd92bdb16e71383dc4375523e92dd",
+    "PRO/Source/ModalExciter.h": "6c5958e2d0724ec2b3508190327883582045f8319bffa6199e17f164761a1615",
+    "PRO/Source/Parameters.def": "8bcebf464e52b43f9bf9dafd292190d630a74b9a0960892fa6e94adab7375968",
+    "PRO/Source/ProParameters.def": "9cebe9b88889ffb33f709385b420ce91ad39df94797101ef72584e28d2cbb486",
+    "PRO/Source/FXParameters.def": "de0841d6638e50d2f17acf3b960867df95fe20d945037b002d1d0da3c41067ba",
+    "PRO/Source/MixerParameters.def": "c4337198a32d2257f455e60a88de65aa834b4fc0addad7fe193e0d1b60076655",
+    "PRO/Source/PerformanceParameters.def": "43e6761b4fb66089d61d16bac10b01e0547a20c8d9b53871513abf9c23296736",
+    "PRO/Source/PluginProcessor.cpp": "52501322c598c8965a814eec583cf7847a230ba072632f5a64eee4ce60232b1d"
+  },
+  "import": "Original PRO modal DSP, separate native adapter. No VST GUI or composer timeline port."
+}

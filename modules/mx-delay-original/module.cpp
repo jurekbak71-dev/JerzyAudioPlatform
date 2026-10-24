@@ -11,4 +11,4 @@ static void process(void* ptr,const JAProcess* b){JerzyAudio::MXDelayParams p;
 static uint32_t latency(void*){return 0;}
 extern "C" const JAModule* ja_module(){static const JerzyAudio::MXDelayParams p;static const JAParameter params[]={
 #include "metadata.inc"
-};static const JAModule m{sizeof(JAModule),JA_ABI,"mx-delay-original","Jerzy MX Analog Delay — oryginalny DSP","0.2.0",0,uint32_t(sizeof(params)/sizeof(params[0])),params,create,destroy,process,latency};return &m;}
+};static const JAModule m{sizeof(JAModule),JA_ABI,"mx-delay-original","Jerzy MX Analog Delay — oryginalny DSP","0.2.1",0,uint32_t(sizeof(params)/sizeof(params[0])),params,create,destroy,process,latency};return &m;}

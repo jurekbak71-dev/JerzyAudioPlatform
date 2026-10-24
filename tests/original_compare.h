@@ -12,7 +12,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-static bool rt=false;static unsigned allocations=0;
+static thread_local bool rt=false;static thread_local unsigned allocations=0;
 extern "C" void* __libc_malloc(std::size_t);
 extern "C" void* __libc_calloc(std::size_t,std::size_t);
 extern "C" void* __libc_realloc(void*,std::size_t);

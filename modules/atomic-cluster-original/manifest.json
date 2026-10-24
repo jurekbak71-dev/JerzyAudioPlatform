@@ -1,7 +1,7 @@
 {
   "id": "atomic-cluster-original",
   "name": "Jerzy Atomic Cluster — oryginalny DSP",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "abi": 1,
   "library": "atomic-cluster-original.so",
   "instrument": false,

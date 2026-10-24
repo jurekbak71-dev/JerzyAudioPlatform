@@ -1,7 +1,7 @@
 {
   "id": "mx-delay-original",
   "name": "Jerzy Mx Delay — oryginalny DSP",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "abi": 1,
   "library": "mx-delay-original.so",
   "instrument": false,

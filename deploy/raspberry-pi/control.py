@@ -27,7 +27,10 @@ def systemctl(*args,check=True):return subprocess.run(['systemctl','--user',*arg
 def core(command):
  with socket.socket(socket.AF_UNIX) as s:
   s.settimeout(5);s.connect(str(BASE/'core.sock'));s.sendall((command+'\n').encode());raw=b''
-  while not raw.endswith(b'\n'):raw+=s.recv(65536)
+  while not raw.endswith(b'\n'):
+   chunk=s.recv(65536)
+   if not chunk:raise RuntimeError('Silnik zamknął połączenie')
+   raw+=chunk
   value=json.loads(raw)
   if not value.get('ok'):raise RuntimeError(value.get('error','Błąd silnika'))
   return value
@@ -38,7 +41,8 @@ def ready():
    import urllib.request
    state=json.load(urllib.request.urlopen('http://127.0.0.1:8093/api/state',timeout=2))
    if state['blocks']>2 and not state['restart_required'] and not state.get('session_restore_error') and not state.get('session_restore_pending'):return state
-  except (OSError,ValueError,KeyError):time.sleep(.2)
+  except (OSError,ValueError,KeyError):pass
+  time.sleep(.2)
  raise RuntimeError('Nowa platforma nie potwierdziła gotowości')
 def quote(value):return '"'+str(value).replace('\\','\\\\').replace('"','\\"').replace('%','%%')+'"'
 def units(release):
@@ -46,7 +50,7 @@ def units(release):
  commands=['/usr/bin/python3 '+quote(release/'deploy/raspberry-pi/start_engine.py'),'/usr/bin/python3 '+quote(release/'web-ui/server.py')+' --host 0.0.0.0 --port 8093 --socket '+quote(BASE/'core.sock')+' --modules '+quote(BASE/'modules')+' --data '+quote(BASE)+' --audio-helper '+quote(release/'deploy/raspberry-pi/control.py')]
  for index,name in enumerate(UNITS):
   path=directory/name
-  path.write_text('[Unit]\nDescription=Jerzy Audio Platform\n'+('After='+UNITS[0]+'\nWants='+UNITS[0]+'\n' if index else '')+'\n[Service]\nType=simple\nExecStart='+commands[index]+'\nRestart=always\nRestartSec=3\n\n[Install]\nWantedBy=default.target\n')
+  path.write_text('[Unit]\nDescription=Jerzy Audio Platform\n'+('After='+UNITS[0]+'\nWants='+UNITS[0]+'\n' if index else '')+'\n[Service]\nType=simple\nExecStart='+commands[index]+'\nRestart=always\nRestartSec=3\nTimeoutStopSec=3\nKillMode=control-group\n\n[Install]\nWantedBy=default.target\n')
  systemctl('daemon-reload')
 def rollback():
  state=json.loads((BASE/'rollback.json').read_text())
@@ -63,6 +67,7 @@ def rollback():
    if backup.exists():shutil.copy2(backup,target)
  systemctl('daemon-reload')
  restore_autostart()
+ restore_modules(state)
  for record in state['services']:manage(record,'start')
  jack=Jack()
  try:
@@ -86,6 +91,38 @@ def rollback():
  if (BASE/'activation-transaction.json').exists():
   atomic_json(BASE/'activation-transaction.json',{'phase':'rolled-back'})
  print('Przywrócono poprzednie usługi i dostępny routing. Sieć i presety bez zmian.')
+def module_upgrade_plan(release,history):
+ result={}
+ for incoming in (release/'modules').glob('*/manifest.json'):
+  new=json.loads(incoming.read_text());target=BASE/'modules'/new['id']
+  old=target/'manifest.json'
+  if not old.exists():continue
+  current=json.loads(old.read_text())
+  if tuple(map(int,new['version'].split('-')[0].split('.')))<=tuple(map(int,current['version'].split('-')[0].split('.'))):continue
+  backup=history/'modules'/new['id'];backup.parent.mkdir(parents=True,exist_ok=True);shutil.copytree(target,backup)
+  result[new['id']]=str(backup)
+ return result
+
+def upgrade_modules(release,backups):
+ # Only called after the previous host has stopped. Never truncate a loaded SO.
+ for name in backups:
+  incoming=release/'modules'/name;target=BASE/'modules'/name;stage=BASE/'modules'/('.upgrade-'+name)
+  if stage.exists():shutil.rmtree(stage)
+  shutil.copytree(incoming,stage)
+  parked=Path(backups[name]).parent.parent/('replaced-'+name)
+  os.replace(target,parked)
+  try:os.replace(stage,target)
+  except BaseException:os.replace(parked,target);raise
+
+def restore_modules(state):
+ for name,backup in state.get('module_backups',{}).items():
+  target=BASE/'modules'/name;stage=BASE/'modules'/('.restore-'+name)
+  if stage.exists():shutil.rmtree(stage)
+  shutil.copytree(backup,stage)
+  if target.exists():
+   failed=Path(backup).parent.parent/('failed-'+name+'-'+str(time.time_ns()));os.replace(target,failed)
+  os.replace(stage,target)
+
 def activate():
  transaction=BASE/'activation-transaction.json'
  if transaction.exists() and json.loads(transaction.read_text()).get('phase')=='pending':
@@ -112,6 +149,7 @@ def activate():
   state={'services':previous,'connections':jack.connections(),'release':str(release),'routing_before':json.loads((BASE/'audio-routing.json').read_text()) if (BASE/'audio-routing.json').exists() else None,'active_release_before':json.loads((BASE/'active-release.json').read_text()) if (BASE/'active-release.json').exists() else None}
   history=BASE/'activation-history'/str(uuid.uuid4());history.mkdir(parents=True)
   if (BASE/'rollback.json').exists():shutil.copy2(BASE/'rollback.json',history/'earlier-rollback.json')
+  state['module_backups']=module_upgrade_plan(release,history)
   state['unit_backups']={}
   for unit in UNITS:
    old=UNIT_DIR/unit
@@ -125,6 +163,7 @@ def activate():
   try:
    for record in reversed(previous):manage(record,'stop')
    stale_socket()
+   upgrade_modules(release,state['module_backups'])
    systemctl('start',UNITS[0]);systemctl('start',UNITS[1]);status=ready();client=status['client']
    for c in range(2):
     if physical_in:jack.connect(physical_in[min(c,len(physical_in)-1)],client+':wejscie_'+str(c+1))
@@ -137,30 +176,53 @@ def activate():
  finally:jack.close()
 def buffer_change(size):
  if size not in (64,128,256,512,1024):raise RuntimeError('Niepoprawny bufor')
- before=core('STATUS');old=int(before['buffer']);jack=Jack();connections=jack.connections()
+ before=core('STATUS');old=int(before['buffer'])
+ if size==old:
+  atomic_json(BASE/'audio-settings.json',{'buffer':size});return
+ # The host reserves 8192 frames for every node. JACK changes the callback
+ # size synchronously; no service stop, graph replacement or socket removal.
+ jack=Jack()
  jack.lib.jack_set_buffer_size.argtypes=[__import__('ctypes').c_void_p,__import__('ctypes').c_uint]
- def start_engine():
-  stale_socket();systemctl('start',UNITS[0]);end=time.monotonic()+15
-  while time.monotonic()<end:
-   try:
-    status=core('STATUS')
-    if status['blocks']>2:
-     recovery=json.loads((BASE/'session-recovery.json').read_text()) if (BASE/'session-recovery.json').exists() else {}
-     if not recovery.get('pending'):
-      if recovery.get('error'):raise RuntimeError('Nie odtworzono sesji: '+recovery['error'])
-      return status
-   except (OSError,ValueError):pass
-   time.sleep(.1)
-  raise RuntimeError('Silnik nie wystartował')
+ jack.lib.jack_set_buffer_size.restype=__import__('ctypes').c_int
  try:
-  systemctl('stop',UNITS[0])
+  if jack.lib.jack_set_buffer_size(jack.client,size):raise RuntimeError('JACK odrzucił rozmiar bufora')
+  end=time.monotonic()+10
+  while time.monotonic()<end:
+   status=core('STATUS')
+   if status['buffer']==size and status['blocks']>before['blocks']:
+    atomic_json(BASE/'audio-settings.json',{'buffer':size});return
+   time.sleep(.05)
+  raise RuntimeError('JACK nie potwierdził pracy z nowym buforem')
+ except BaseException:
+  jack.lib.jack_set_buffer_size(jack.client,old)
+  raise
+ finally:jack.close()
+def restart_audio(empty=False):
+ if empty:
+  file=BASE/'last-session.json'
+  if file.exists():shutil.copy2(file,BASE/('last-session-before-recovery-'+str(time.time_ns())+'.json'))
+  (BASE/'skip-session-once').touch()
+ systemctl('restart',UNITS[0])
+ end=time.monotonic()+25
+ while time.monotonic()<end:
   try:
-   if jack.lib.jack_set_buffer_size(jack.client,size):raise RuntimeError('JACK odrzucił rozmiar bufora')
-   status=start_engine()
-   if status['buffer']!=size:raise RuntimeError('JACK zgłosił inny bufor')
-   jack.restore(connections)
-  except BaseException:
-   systemctl('stop',UNITS[0],check=False);jack.lib.jack_set_buffer_size(jack.client,old);start_engine();jack.restore(connections);raise
+   status=core('STATUS');recovery=json.loads((BASE/'session-recovery.json').read_text())
+   if status['blocks']>2 and not recovery.get('pending'):return
+  except (OSError,ValueError,RuntimeError):pass
+  time.sleep(.2)
+ raise RuntimeError('Nie odzyskano silnika; sprawdź JACK i USB HeadRush')
+def thru(enabled):
+ jack=Jack();file=BASE/'thru-jack.json'
+ try:
+  previous=json.loads(file.read_text()) if file.exists() else {}
+  if enabled:
+   jack.restore(previous.get('connections',[]));previous['disabled']=False;atomic_json(file,previous)
+   print(json.dumps({'ok':True,'message':'Przywrócono zapisane połączenia THRU JACK.'}))
+  else:
+   direct=jack.direct_thru()
+   for source,target in direct:jack.disconnect(source,target)
+   atomic_json(file,{'disabled':True,'connections':direct or previous.get('connections',[])})
+   print(json.dumps({'ok':True,'message':('Wyłączono THRU JACK.' if direct else 'Brak bezpośredniego THRU w JACK. Jeśli nadal słychać suchą gitarę, sprawdź monitoring w HeadRush.')}))
  finally:jack.close()
 def boot_command(record,action):
  prefix=['sudo','-n','systemctl'] if record['scope']=='system' else ['systemctl','--user']
@@ -201,10 +263,12 @@ def autostart():
   raise
  print('Autostart platformy i istniejącego JACK włączony. Sieć i parametry audio bez zmian. Poprzednie ustawienia startu zapisane.')
 def main():
- p=argparse.ArgumentParser();p.add_argument('action',choices=['activate','rollback','diagnostics','buffer','autostart','autostart-off']);p.add_argument('size',type=int,nargs='?');args=p.parse_args()
+ p=argparse.ArgumentParser();p.add_argument('action',choices=['activate','rollback','diagnostics','buffer','autostart','autostart-off','restart','recover','thru-on','thru-off']);p.add_argument('size',type=int,nargs='?');args=p.parse_args()
  try:
   if args.action=='activate':activate()
   elif args.action=='rollback':rollback()
+  elif args.action in ('thru-on','thru-off'):thru(args.action=='thru-on')
+  elif args.action in ('restart','recover'):restart_audio(args.action=='recover')
   elif args.action=='buffer':buffer_change(args.size)
   elif args.action=='autostart':autostart()
   elif args.action=='autostart-off':restore_autostart()

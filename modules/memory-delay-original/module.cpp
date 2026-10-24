@@ -20,4 +20,4 @@ extern "C" const JAModule* ja_module(){static const JAParameter p[]={
 {"modEnable","Modulacja","0–1","",0,1,float(Jerzy::defaults[11]),0},
 {"tempoSync","Synchronizacja tempa","0–1","",0,1,float(Jerzy::defaults[12]),0},
 {"division","Podział rytmiczny","0–1","",0,1,float(Jerzy::defaults[13]),0}
-};static const JAModule m{sizeof(JAModule),JA_ABI,"memory-delay-original","Jerzy Memory Delay — oryginalny DSP","0.2.0",0,Jerzy::Count,p,create,destroy,process,latency};return &m;}
+};static const JAModule m{sizeof(JAModule),JA_ABI,"memory-delay-original","Jerzy Memory Delay — oryginalny DSP","0.2.1",0,Jerzy::Count,p,create,destroy,process,latency};return &m;}

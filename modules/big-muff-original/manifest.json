@@ -1,7 +1,7 @@
 {
   "id": "big-muff-original",
   "name": "Jerzy Big Muff — oryginalny DSP",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "abi": 1,
   "library": "big-muff-original.so",
   "instrument": false,
@@ -17,5 +17,6 @@
     },
     "import": "byte-for-byte DSP; native ABI wrapper is separate"
   },
-  "compatibility": "reference-comparison-required"
+  "compatibility": "reference-comparison-required",
+  "platform_defaults": "New instances select original Legacy model to avoid immediately overloading Pi with the full circuit solver. All circuit models retained."
 }

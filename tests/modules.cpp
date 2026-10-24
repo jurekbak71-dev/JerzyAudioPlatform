@@ -67,6 +67,11 @@ int main(int argc,char** argv){try{check(argc==2,"module directory required");co
  }
  // Actual IR impulse response has gain .5 and latency 64 frames.
  {Plugin p(root,"cab-ir",44100,asset.c_str());in={};in[0][0]=in[1][0]=1;JAProcess b{sizeof(JAProcess),256,44100,120,0,1,{in[0].data(),in[1].data()},{out[0].data(),out[1].data()},nullptr,nullptr,0};p.run(b);for(int i=0;i<256;++i)check(std::abs(out[0][i]-(i==64?.5f:0.f))<1e-5,"IR impulse mismatch");check(p.api->latency(p.instance)==64,"latency report");}
+ // Added CAB controls: latency-aligned dry mix and inverted IR polarity.
+ {Plugin dry(root,"cab-ir",44100,asset.c_str()),wet(root,"cab-ir",44100,asset.c_str());dry.values[1]=0;wet.values[2]=1;in={};
+  JAProcess b{sizeof(JAProcess),256,44100,120,0,1,{in[0].data(),in[1].data()},{out[0].data(),out[1].data()},nullptr,nullptr,0};for(int block=0;block<60;++block){dry.run(b);wet.run(b);}
+  in[0][0]=in[1][0]=1;dry.run(b);for(int i=0;i<256;++i)check(std::abs(out[0][i]-(i==64?1.f:0.f))<1e-5,"CAB dry mix latency mismatch");wet.run(b);for(int i=0;i<256;++i)check(std::abs(out[0][i]-(i==64?-.5f:0.f))<2e-5,"CAB polarity mismatch");
+ }
  // Every fuzz/tape parameter must change the rendered signal, not just metadata.
  for(std::string id:{"big-muff","tape-drive"})for(unsigned parameter=0;parameter<3;++parameter){double difference=0;
   Plugin a(root,id,48000,""),b(root,id,48000,"");a.values[parameter]=.1;b.values[parameter]=.9;

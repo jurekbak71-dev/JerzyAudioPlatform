@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 #define JA_ABI 1u
-#define JA_MAX_PARAMETERS 512u
+#define JA_MAX_PARAMETERS 1024u
 typedef struct { const char *id,*label,*unit,*choices; float minimum,maximum,initial; uint32_t integer; } JAParameter;
 typedef struct { uint32_t frame,size; uint8_t bytes[3]; } JAMidi;
 typedef struct {

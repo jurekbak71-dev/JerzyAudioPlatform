@@ -29,8 +29,9 @@ def main():
   # LastTest.log must describe these binaries, not a prior build.
   if library.stat().st_mtime>(a.build/'Testing/Temporary/LastTest.log').stat().st_mtime:raise RuntimeError('Biblioteka nowsza niż testy: '+id)
   result={**record,'passed':True,'abi':1,'sample_rates':[44100,48000],'block_sizes':[64,128,256,512,1024],'reference_commit':provenance['commit'],'library_sha256':hashlib.sha256(library.read_bytes()).hexdigest(),'reference_files_verified':True,'hardware_validated':False,'scope':'float32 DSP, tested parameter/MIDI/tempo scenarios; not complete VST GUI/state format or physical hardware certification'}
+  if id=='bass-ambient-pro-original':result['coverage']={'parameters_wired_against_vst_reader':724,'instruments':['bass','ambient','arp','drums','krell'],'modal':True,'midi_note_cc_bend':True,'strict_reference_fx_enabled':False,'resource_fx':'asynchronous, tested separately; no bitwise timing claim','composer_gui_export':False}
   manifest=json.loads((source/'manifest.json').read_text());manifest['compatibility']=result
   (a.build/'modules'/id/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
   (output/(id+'.json')).write_text(json.dumps(result,indent=2)+'\n')
- print('PASS: siedem raportów zgodności przypisano do dokładnych bibliotek i źródeł.')
+ print('PASS:',len(records),'raportów przypisano do dokładnych bibliotek i źródeł.')
 if __name__=='__main__':main()

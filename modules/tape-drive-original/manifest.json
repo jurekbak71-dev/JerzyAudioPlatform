@@ -1,7 +1,7 @@
 {
   "id": "tape-drive-original",
   "name": "Jerzy Tape Drive — oryginalny DSP",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "abi": 1,
   "library": "tape-drive-original.so",
   "instrument": false,

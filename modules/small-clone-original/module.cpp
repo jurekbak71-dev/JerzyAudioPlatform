@@ -18,4 +18,4 @@ extern "C" const JAModule* ja_module(){static const auto defaults=jerzy::default
 {"bypass","Bypass oryginału","0–1","",0,1,float(defaults[8]),0},
 {"sync","Synchronizacja tempa","0–1","",0,1,float(defaults[9]),0},
 {"division","Podział rytmiczny","0–1","",0,1,float(defaults[10]),0}
-};static const JAModule m{sizeof(JAModule),JA_ABI,"small-clone-original","Jerzy small clone — oryginalny DSP","0.2.0",0,NumParams,params,create,destroy,process,latency};return &m;}
+};static const JAModule m{sizeof(JAModule),JA_ABI,"small-clone-original","Jerzy small clone — oryginalny DSP","0.2.1",0,NumParams,params,create,destroy,process,latency};return &m;}

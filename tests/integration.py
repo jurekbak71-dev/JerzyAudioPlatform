@@ -42,6 +42,33 @@ def main():
    for i in range(12):
     n=core('ADD 0 '+json.dumps(str(build/'modules/big-muff/big-muff.so'))+' ""')['id'];core(f'MOVE {n} 0');core(f'REMOVE {n}')
    assert core('STATUS')['blocks']>before
+   # A costly module must not take away bypass/control of the rest of the graph.
+   overload=core('ADD 0 '+json.dumps(str(build/'overload-fixture.so'))+' ""')['id']
+   def protected():
+    value=next(n for n in core('LIST')['nodes'] if n['id']==overload)
+    if value['fault']!=1 or not value['bypass']:raise ValueError('guard pending')
+    return value
+   wait(protected);core(f'REMOVE {overload}');assert core('STATUS')['blocks']>before
+   # Exercise the real buffer helper against this JACK server. Any service
+   # restart is an error; node IDs, parameters and actual connections survive.
+   bufferCode="import importlib.util,pathlib,sys; sys.path.insert(0,"+repr(str(ROOT/'deploy/raspberry-pi'))+"); p="+repr(str(ROOT/'deploy/raspberry-pi/control.py'))+"; s=importlib.util.spec_from_file_location('control',p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); m.BASE=pathlib.Path("+repr(str(tmp))+ "); m.systemctl=lambda *a,**k: (_ for _ in ()).throw(AssertionError('unexpected service restart')); m.buffer_change(512); m.buffer_change(128); m.buffer_change(256)"
+   ids=[n['id'] for n in core('LIST')['nodes']]
+   subprocess.run([sys.executable,'-c',bufferCode],env=env,check=True,timeout=30)
+   assert core('STATUS')['buffer']==256 and [n['id'] for n in core('LIST')['nodes']]==ids
+   assert probe()['rms']>.01
+   # Combined load is protected even if each individual module fits its budget.
+   subprocess.run([sys.executable,'-c',bufferCode.replace('m.buffer_change(512); m.buffer_change(128); m.buffer_change(256)','m.buffer_change(512)')],env=env,check=True,timeout=15)
+   medium=[core('ADD 0 '+json.dumps(str(build/'overload-fixture.so'))+' "6"')['id'] for _ in range(2)]
+   def aggregate_protected():
+    nodes=[n for n in core('LIST')['nodes'] if n['id'] in medium]
+    if not any(n['fault']==1 and n['bypass'] for n in nodes):raise ValueError('aggregate guard pending')
+    return nodes
+   wait(aggregate_protected)
+   for n in medium:core(f'REMOVE {n}')
+   subprocess.run([sys.executable,'-c',bufferCode],env=env,check=True,timeout=30)
+   # THRU affects only direct physical audio edges, preserving host routing.
+   thruCode="import importlib.util,pathlib,sys; sys.path.insert(0,"+repr(str(ROOT/'deploy/raspberry-pi'))+"); p="+repr(str(ROOT/'deploy/raspberry-pi/control.py'))+"; s=importlib.util.spec_from_file_location('control',p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); m.BASE=pathlib.Path("+repr(str(tmp))+"); j=m.Jack(); j.connect('system:capture_1','system:playback_2'); assert j.direct_thru(); m.thru(False); assert not j.direct_thru(); m.thru(True); assert ['system:capture_1','system:playback_2'] in j.direct_thru(); j.disconnect('system:capture_1','system:playback_2'); j.close()"
+   subprocess.run([sys.executable,'-c',thruCode],env=env,check=True,timeout=15)
    # Panel starts on a free local port; make real HTTP requests.
    with socket.socket() as portSocket:portSocket.bind(('127.0.0.1',0));port=portSocket.getsockname()[1]
    web=start([sys.executable,str(ROOT/'web-ui/server.py'),'--socket',str(tmp/'core.sock'),'--modules',str(build/'modules'),'--data',str(tmp/'data'),'--port',str(port)],'web')
@@ -65,11 +92,23 @@ def main():
    try:action({'action':'param','id':restored[0]['id'],'index':0,'value':999})
    except urllib.error.HTTPError as error:assert error.code==400
    else:raise AssertionError('invalid parameter accepted')
-   synth=action({'action':'add','module':'bass-ambient-original','route':1})['id'];nodes=get('/api/state')['nodes'];bass=next(n for n in nodes if n['id']==synth);idx=next(i for i,p in enumerate(bass['parameters']) if p['id']=='bass');action({'action':'param','id':synth,'index':idx,'value':1});time.sleep(.2);assert get('/api/state')['buses'][1]['peak']>0
+   # Real IR import, visible controls and migration of a one-control CAB preset.
+   import base64,io,wave,struct
+   raw=io.BytesIO()
+   with wave.open(raw,'wb') as wav:wav.setnchannels(1);wav.setsampwidth(2);wav.setframerate(44100);wav.writeframes(struct.pack('<h',16384)+b'\0\0'*255)
+   action({'action':'ir-import','name':'Test IR.wav','data':base64.b64encode(raw.getvalue()).decode()})
+   cab=action({'action':'add','module':'cab-ir','route':0,'asset':'Test IR.wav'})['id'];nodeState=next(n for n in get('/api/state')['nodes'] if n['id']==cab)
+   assert nodeState['asset'].endswith('Test IR.wav') and [p['id'] for p in nodeState['parameters']]==['level','mix','polarity']
+   action({'action':'param','id':cab,'index':0,'value':.6});action({'action':'preset-save','name':'CAB migration'})
+   old=tmp/'data/presets/CAB migration.json';legacy=json.loads(old.read_text());next(n for n in legacy['nodes'] if n['module']=='cab-ir')['parameters']=nodeState['parameters'][:1];old.write_text(json.dumps(legacy))
+   action({'action':'preset-load','name':'CAB migration'});cab=next(n for n in get('/api/state')['nodes'] if n['module']=='cab-ir');assert len(cab['parameters'])==3
+   action({'action':'bypass','id':cab['id'],'value':1});action({'action':'remove','id':cab['id']})
+   synth=action({'action':'add','module':'bass-ambient-pro-original','route':1})['id'];nodes=get('/api/state')['nodes'];bass=next(n for n in nodes if n['id']==synth);idx=next(i for i,p in enumerate(bass['parameters']) if p['id']=='bass');action({'action':'param','id':synth,'index':idx,'value':1});auto=next(i for i,p in enumerate(bass['parameters']) if p['id']=='autoPlay');action({'action':'param','id':synth,'index':auto,'value':1});time.sleep(.2);assert get('/api/state')['buses'][1]['peak']>0
    # Exercise the installed service entry without changing HOME or systemd.
    payload=tmp/'payload';(payload/'bin').mkdir(parents=True);(payload/'bin/jerzy-audio-core').symlink_to(build/'jerzy-audio-core')
    (payload/'web-ui').symlink_to(ROOT/'web-ui',target_is_directory=True)
    base=tmp/'restart-data';base.mkdir();shutil.copytree(build/'modules',base/'modules')
+   (base/'audio-settings.json').write_text(json.dumps({'buffer':512}))
    (base/'audio-routing.json').write_text(json.dumps({'inputs':['system:capture_1','system:capture_2'],'outputs':['system:playback_1','system:playback_2']}))
    saved=get('/api/state');saved['schema']=1;(base/'last-session.json').write_text(json.dumps(saved))
    bootCode="import importlib.util,pathlib,sys; p="+repr(str(ROOT/'deploy/raspberry-pi/start_engine.py'))+"; s=importlib.util.spec_from_file_location('entry',p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); m.ROOT=pathlib.Path("+repr(str(payload))+"); m.BASE=pathlib.Path("+repr(str(base))+"); sys.exit(m.main())"
@@ -82,9 +121,22 @@ def main():
     assert not recovery.get('error'),recovery
     value=command_socket(base/'core.sock','LIST')
     if len(value['nodes'])!=len(saved['nodes']):raise ValueError('pending nodes')
+    assert command_socket(base/'core.sock','STATUS')['buffer']==512
     return value
    wait(restored);boot.terminate();boot.wait(timeout=10)
-   boot=start([sys.executable,'-c',bootCode],'bootstrap-restart');wait(restored);boot.terminate();boot.wait(timeout=10)
+   boot=start([sys.executable,'-c',bootCode],'bootstrap-restart');wait(restored)
+   # The actual recovery helper can empty the graph without rebooting JACK/Pi.
+   import importlib.util
+   sys.path.insert(0,str(ROOT/'deploy/raspberry-pi'))
+   spec=importlib.util.spec_from_file_location('recovery_control',ROOT/'deploy/raspberry-pi/control.py');recovery_control=importlib.util.module_from_spec(spec);spec.loader.exec_module(recovery_control);recovery_control.BASE=base
+   def restart_unit(action,unit):
+    nonlocal boot
+    assert action=='restart' and unit==recovery_control.UNITS[0]
+    boot.terminate();boot.wait(timeout=10);boot=start([sys.executable,'-c',bootCode],'bootstrap-recovery')
+   recovery_control.systemctl=restart_unit;recovery_control.restart_audio(True)
+   assert not command_socket(base/'core.sock','LIST')['nodes'] and list(base.glob('last-session-before-recovery-*.json'))
+   recovery_control.restart_audio(False);wait(restored);boot.terminate();boot.wait(timeout=10)
+   subprocess.run([sys.executable,'-c',bufferCode],env=env,check=True,timeout=30)
    if a.stress_seconds:
     # Capture real output throughout the run; pauses allow each fade to reopen.
     capture=subprocess.Popen([str(build/'jack-probe'),status['client'],str(int(a.stress_seconds*1000))],env=env,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
@@ -97,7 +149,7 @@ def main():
     captured=json.loads(capture.communicate(timeout=10)[0]);assert capture.returncode==0 and captured['rms']>.001,captured
     print(json.dumps({'stress_seconds':a.stress_seconds,'graph_cycles':cycles,'captured_audio':captured,'status':core('STATUS')},indent=2))
    if a.browser:subprocess.run(['node',str(ROOT/'tests/ui.cjs'),url,str(ROOT/'docs/panel-mobile.png')],env=env,check=True)
-   print(json.dumps({'result':'PASS','checks':['JACK ports and unique names','real audio gain and bypass','native MIDI CC learn','module preset restore','live graph add/move/remove','HTTP panel','session save/load with Unicode','failed graph transaction','invalid parameter rejection','BassAmbient in independent instrument bus','service entry restores graph after engine restart'],'audio':{'baseline':baseline,'gain_minus_12dB':quiet,'bypass':bypass},'status':core('STATUS')},ensure_ascii=False,indent=2))
+   print(json.dumps({'result':'PASS','checks':['JACK ports and unique names','real audio gain and bypass','native MIDI CC learn','module preset restore','live graph add/move/remove','HTTP panel','session save/load with Unicode','failed graph transaction','invalid parameter rejection','BassAmbient in independent instrument bus','service entry restores graph and saved buffer after engine restart','recover empty graph without Pi restart','live JACK buffer keeps instances','THRU preserves host routing','overload triggers automatic bypass'],'audio':{'baseline':baseline,'gain_minus_12dB':quiet,'bypass':bypass},'status':core('STATUS')},ensure_ascii=False,indent=2))
   except BaseException:
    for log in tmp.glob('*.log'):print(log.name,log.read_text()[-3000:],file=sys.stderr)
    raise
