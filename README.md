@@ -1,5 +1,18 @@
 # Jerzy Audio Platform 0.1.0 — wersja rozwojowa
 
+## Pobierz i zainstaluj na Windows
+
+**[Pobierz ZIP instalatora — wydanie testowe preview.2](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/download/v0.1.0-preview.2/JerzyAudioPlatform-v0.1.0-Windows-Installer.zip)**
+
+1. Rozpakuj cały ZIP.
+2. Kliknij dwukrotnie `START-INSTALACJA.cmd`.
+3. Podaj IP Raspberry Pi, jeśli nie zostanie odnalezione automatycznie, i hasło użytkownika `jerzy`.
+
+Instalator najpierw sprawdzi pliki i zależności; aktywację potwierdzasz wpisaniem `TAK`. Po sukcesie otworzy panel. Powrót do poprzedniego systemu: `PRZYWROC-MULTIFX.cmd`.
+
+Wydanie zbudowało GitHub Actions po testach x86_64, ARM64 oraz parsera PowerShell na Windows. Nie wykonano instalacji na fizycznym Windows/Pi/HeadRush ani testów Safari. Używaj osobnej kopii karty, zachowując działającą CARD-00.
+
+
 Oddzielny host JACK2, moduły ELF `.so` z ABI C, lokalny menedżer paczek i polski panel WWW na porcie 8093. Projekt powstaje obok MultiFX; nie zmienia jego źródeł ani konfiguracji sieci.
 
 **To nie jest jeszcze kompletne wydanie spełniające całą specyfikację.** Patrz [ograniczenia](docs/OGRANICZENIA.md), [audyt](docs/AUDYT.md) i [testy sprzętowe](docs/TESTY_SPRZETOWE.md). Dostarczone paczki są przeznaczone do stagingu i kontrolowanych prób, nie do zastąpienia sprawnej karty CARD-00 bez pomiarów.
