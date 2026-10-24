@@ -3,7 +3,7 @@
 #include <thread>
 #include <chrono>
 struct State {
- jerzy::Instrument synth;jerzy::Parameters current;double sr,localBeat=0;std::atomic<bool> stop{false};std::thread worker;
+ jerzy::Instrument synth;jerzy::Parameters current;double sr,localBeat=0;int previousClock=-1,previousSource=-1;std::atomic<bool> stop{false};std::thread worker;
  State(double rate):sr(rate){current.bass=false;synth.prepare(sr);worker=std::thread([this]{while(!stop.load()){synth.serviceResources();std::this_thread::sleep_for(std::chrono::milliseconds(5));}});}
  ~State(){stop.store(true);if(worker.joinable())worker.join();}
 };
@@ -16,10 +16,10 @@ static jerzy::Parameters parameters(const float* v){jerzy::Parameters p;constexp
 }
 static void* create(double sr,uint32_t,const char*){try{return new State(sr);}catch(...){return nullptr;}}
 static void destroy(void* p){delete static_cast<State*>(p);}
-static void process(void* ptr,const JAProcess* b){auto& s=*static_cast<State*>(ptr);const auto p=parameters(b->parameters);const auto previous=s.current;s.current=p;
+static void process(void* ptr,const JAProcess* b){auto& s=*static_cast<State*>(ptr);const auto p=parameters(b->parameters);if(s.previousSource!=p.performanceSource){if(s.previousSource>=0)s.synth.reset();s.previousSource=p.performanceSource;}if(s.previousClock!=p.clockSource){s.synth.allOff();s.localBeat=0;s.previousClock=p.clockSource;}const auto previous=s.current;s.current=p;
 #include "continuous.inc"
  const double tempo=p.clockSource==1?b->bpm:p.internalTempo;double beat=p.clockSource==1?b->beat:s.localBeat;const double smoothing=1-std::exp(-1/(s.sr*.02));
- s.synth.configureResources(p);s.synth.beginBlock(beat,tempo,b->playing!=0);unsigned event=0;
+ s.synth.configureResources(p);s.synth.beginBlock(beat,tempo,p.clockSource==1&&b->playing!=0);unsigned event=0;
  for(unsigned i=0;i<b->frames;++i){
 #include "smooth.inc"
   while(event<b->midi_count&&b->midi[event].frame<=i){const auto& e=b->midi[event++];if(e.size<3)continue;int status=e.bytes[0]&240,ch=(e.bytes[0]&15)+1;
