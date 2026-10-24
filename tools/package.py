@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Package only actual compiled ELF files. Refuses to mislabel an architecture."""
-import argparse,gzip,hashlib,json,shutil,struct,tarfile,tempfile,zipfile,subprocess,datetime
+import argparse,gzip,hashlib,json,shutil,struct,tarfile,tempfile,zipfile,subprocess,datetime,os
 from pathlib import Path
 from package_module import package
 ROOT=Path(__file__).resolve().parents[1]
@@ -23,7 +23,7 @@ def main():
   for name in ['README.md','CHANGELOG.md','docs/INSTRUKCJA_PL.html','docs/AUDYT.md','docs/TESTY_SPRZETOWE.md','docs/OGRANICZENIA.md','docs/RAPORT_TESTOW.md','docs/POMIARY_DSP.json','docs/BUILD-TESTS.log','docs/PACKAGE-TESTS.log','docs/DSP-TESTS.log','docs/INTEGRATION-TESTS.log','docs/POWERSHELL-PARSER.log']:
    target=root/name;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(ROOT/name,target)
   try:commit=subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True,stderr=subprocess.DEVNULL).strip()
-  except subprocess.CalledProcessError:commit=None
+  except (subprocess.CalledProcessError,FileNotFoundError):commit=os.environ.get('GITHUB_SHA')
   (root/'BUILD-METADATA.json').write_text(json.dumps({'version':'0.1.0','status':'development','source_commit':commit,'architecture':a.arch,'hardware_validated':False,'windows_installation_validated':False,'created_utc':datetime.datetime.now(datetime.timezone.utc).isoformat()},indent=2)+'\n')
   files={str(f.relative_to(root)):hashlib.sha256(f.read_bytes()).hexdigest() for f in sorted(root.rglob('*')) if f.is_file()}
   (root/'FILES-SHA256.json').write_text(json.dumps(files,indent=2)+'\n')

@@ -24,7 +24,7 @@ jobs:
       - name: Narzędzia zgodne z Bookworm
         run: |
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends g++ cmake ninja-build pkg-config libjack-jackd2-dev jackd2 python3 ca-certificates nodejs
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git g++ cmake ninja-build pkg-config libjack-jackd2-dev jackd2 python3 ca-certificates nodejs
       - name: Kompilacja i testy DSP
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_SKIP_RPATH=ON
