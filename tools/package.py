@@ -41,6 +41,7 @@ def main():
    def write(name,data):
     info=zipfile.ZipInfo(name,(2026,10,24,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;z.writestr(info,data)
    for f in sorted((ROOT/'deploy/windows').iterdir()):write(f.name,f.read_bytes())
+   write('recover_jack.sh',(ROOT/'deploy/raspberry-pi/recover_jack.sh').read_bytes())
    write('INSTRUKCJA_PL.html',(ROOT/'docs/INSTRUKCJA_PL.html').read_bytes())
    write('RAPORT_TESTOW.md',(ROOT/'docs/RAPORT_TESTOW.md').read_bytes())
    write(archive.name,archive.read_bytes());write('SHA256.json',(json.dumps(sums,indent=2)+'\n').encode())
