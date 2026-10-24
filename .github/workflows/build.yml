@@ -35,12 +35,12 @@ jobs:
         env:
           JERZY_TEST_BUILD: ${{ github.workspace }}/build
         run: |
-          python3 tests/integration.py --build build --stress-seconds 15 > docs/INTEGRATION-TESTS.log 2>&1
-          python3 -m unittest discover -s tests -p 'test_*.py' -v > docs/PACKAGE-TESTS.log 2>&1
+          python3 tools/ci_run.py docs/INTEGRATION-TESTS.log python3 tests/integration.py --build build --stress-seconds 15
+          python3 tools/ci_run.py docs/PACKAGE-TESTS.log python3 -m unittest discover -s tests -p 'test_*.py' -v
           node --check web-ui/app.js
           sh -n deploy/raspberry-pi/install.sh
       - name: Budowanie rzeczywistych paczek
-        run: python3 tools/package.py --build build --out dist --arch ${{ matrix.arch }}
+        run: python3 tools/ci_run.py docs/PACKAGE-BUILD.log python3 tools/package.py --build build --out dist --arch ${{ matrix.arch }}
       - uses: actions/upload-artifact@v4
         with:
           name: JerzyAudioPlatform-${{ matrix.arch }}

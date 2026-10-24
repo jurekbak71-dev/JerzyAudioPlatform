@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import argparse,json,os,signal,socket,subprocess,sys,tempfile,time,urllib.request
+import argparse,json,os,platform,signal,socket,subprocess,sys,tempfile,time,urllib.request
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 def wait(fn,timeout=15):
@@ -12,7 +12,7 @@ def main():
  p=argparse.ArgumentParser();p.add_argument('--build',required=True);p.add_argument('--browser',action='store_true');p.add_argument('--stress-seconds',type=float,default=0);a=p.parse_args();build=Path(a.build).resolve();processes=[]
  with tempfile.TemporaryDirectory(prefix='jerzy-test-') as temp:
   tmp=Path(temp);env=os.environ.copy();env['JACK_DEFAULT_SERVER']='jerzy-test-'+str(os.getpid())
-  env.setdefault('JACK_DRIVER_DIR','/usr/lib/x86_64-linux-gnu/jack')
+  env.setdefault('JACK_DRIVER_DIR',f'/usr/lib/{platform.machine()}-linux-gnu/jack')
   def start(args,name):
    f=(tmp/(name+'.log')).open('w');proc=subprocess.Popen(args,env=env,stdout=f,stderr=subprocess.STDOUT);f.close();processes.append(proc);return proc
   def core(cmd):
