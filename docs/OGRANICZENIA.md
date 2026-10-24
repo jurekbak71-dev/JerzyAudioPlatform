@@ -14,3 +14,5 @@ To wydanie rozwojowe nie spełnia jeszcze całej specyfikacji WYMAGANIA.md.
 10. Repozytorium GitHub i Release nie zostały utworzone: API w tej sesji zwróciło Forbidden. Workflow jest przygotowany lokalnie, ale nie został wykonany przez GitHub Actions. Brak publicznych zweryfikowanych linków do artifactów; istnieją rzeczywiste paczki w katalogu dist.
 
 Te braki uniemożliwiają oznaczenie produktu jako kompletnego, stabilnego v0.1.0. Należy pracować na osobnej kopii karty, zachowując CARD-00.
+
+Aktualizacja publikacji: dostęp do API GitHub został przywrócony. Przygotowano wydanie testowe oraz skróty CMD do aktywacji, panelu, diagnostyki i rollbacku. Wynik publikacji należy sprawdzić na stronie repozytorium.

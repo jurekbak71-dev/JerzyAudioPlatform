@@ -31,3 +31,5 @@ Binarium hosta ARM64 wymaga symboli najwyżej GLIBC_2.34 i GLIBCXX_3.4.29; zbudo
 ## Pliki
 
 Prawdziwe archiwa i pięć paczek modułów znajdują się w dist. SHA256.json i SHA256SUMS.txt zawierają sumy gotowych plików. Nie podajemy zmyślonych odnośników do GitHub.
+
+Aktualizacja publikacji: dostęp do API GitHub został przywrócony. Przygotowano wydanie testowe oraz skróty CMD do aktywacji, panelu, diagnostyki i rollbacku. Wynik publikacji należy sprawdzić na stronie repozytorium.

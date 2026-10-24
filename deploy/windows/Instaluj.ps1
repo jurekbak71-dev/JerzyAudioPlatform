@@ -1,4 +1,4 @@
-﻿param([string]$Adres = '', [ValidateSet('Instalacja','Diagnostyka','Przywroc')][string]$Tryb = 'Instalacja')
+﻿param([string]$Adres = '', [ValidateSet('Instalacja','Diagnostyka','Przywroc','Aktywacja','Panel')][string]$Tryb = 'Instalacja')
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 function Run-External([string]$Program, [string[]]$Arguments) {
@@ -20,9 +20,23 @@ try {
     if (-not $Adres) { $Adres = Read-Host 'Podaj adres IP Raspberry Pi (sprawdź listę urządzeń routera)' }
     if ($Adres -notmatch '^[a-zA-Z0-9][a-zA-Z0-9.-]{0,252}$') { throw 'Nieprawidłowy adres. Wpisz IPv4 lub nazwę hosta bez spacji.' }
     $target = "jerzy@$Adres"
+    if ($Tryb -eq 'Panel') {
+        Start-Process "http://${Adres}:8093/"
+        exit 0
+    }
+    if ($Tryb -eq 'Aktywacja') {
+        Write-Host 'Aktywacja przelaczy tor audio. Uzywaj osobnej kopii karty.'
+        $answer = Read-Host 'Wpisz TAK, aby aktywowac platforme testowa'
+        if ($answer -cne 'TAK') { exit 0 }
+        $command = 'release=$(cat "$HOME/.local/share/jerzy-audio-platform/staged") && sudo -v && python3 "$release/deploy/raspberry-pi/control.py" activate'
+        Run-External 'ssh.exe' @('-t',$target,$command)
+        Start-Process "http://${Adres}:8093/"
+        exit 0
+    }
     if ($Tryb -eq 'Diagnostyka' -or $Tryb -eq 'Przywroc') {
         $operation = if ($Tryb -eq 'Diagnostyka') { 'diagnostics' } else { 'rollback' }
         $command = 'release=$(cat "$HOME/.local/share/jerzy-audio-platform/staged") && python3 "$release/deploy/raspberry-pi/control.py" ' + $operation
+        if ($Tryb -eq 'Przywroc') { $command = 'sudo -v && ' + $command }
         Run-External 'ssh.exe' @('-t',$target,$command)
         exit 0
     }
@@ -45,6 +59,7 @@ try {
         $activate = 'release=$(cat "$HOME/.local/share/jerzy-audio-platform/staged") && sudo -v && python3 "$release/deploy/raspberry-pi/control.py" activate'
         Run-External 'ssh.exe' @('-t',$target,$activate)
         Write-Host "Panel: http://${Adres}:8093/" -ForegroundColor Green
+        Start-Process "http://${Adres}:8093/"
         Write-Host 'Sprawdź dźwięk, wejścia, poziomy i XRUN. Autostart wymaga oddzielnego zatwierdzenia po testach sprzętowych.'
     } else { Write-Host 'Pozostawiono pliki staging bez aktywacji.' }
     exit 0

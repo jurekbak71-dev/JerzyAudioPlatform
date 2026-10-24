@@ -33,3 +33,5 @@ Bufory są alokowane wcześniej. Maksymalny wspierany blok to 8192 próbek; wię
 Nie ma jeszcze pełnego audytu worst-case czasu DSP, testu TSan grafu, formalnego dowodu lock-free wszystkich użytych atomików na wszystkich platformach ani wielogodzinnego wyniku ze sprzętu. Dynamiczne moduły wymagają zaufania do ich autora.
 
 Metadane paczek modułów odczytują rzeczywiste wymagania GLIBC/GLIBCXX i DT_NEEDED za pomocą readelf; architektura wynika z nagłówka ELF. Nie przypisuje się zgodności z Bookworm dowolnemu binarium ARM64 tylko na podstawie jego nazwy.
+
+Aktualizacja publikacji: dostęp do API GitHub został przywrócony. Przygotowano wydanie testowe oraz skróty CMD do aktywacji, panelu, diagnostyki i rollbacku. Wynik publikacji należy sprawdzić na stronie repozytorium.

@@ -16,3 +16,10 @@ przed zmianą działającego systemu. Przeczytaj INSTRUKCJA_PL.html.
 
 UWAGA: brak testów na fizycznym Raspberry Pi/HeadRush i Windows.
 Nie traktuj tej paczki jako stabilnego wydania produkcyjnego.
+
+PROSTSZA OBSŁUGA — DWUKLIK:
+START-INSTALACJA.cmd — przygotowanie plików i opcjonalna aktywacja.
+AKTYWUJ.cmd — aktywacja wcześniej przygotowanej paczki.
+OTWORZ-PANEL.cmd — otwarcie panelu po udanej aktywacji.
+PRZYWROC-MULTIFX.cmd — powrót do poprzedniego systemu.
+DIAGNOSTYKA.cmd — sprawdzenie stanu.
