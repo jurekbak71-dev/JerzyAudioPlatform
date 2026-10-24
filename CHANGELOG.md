@@ -1,3 +1,7 @@
+## Poprawka Wi-Fi po 0.2.0-preview.1
+
+Oczekiwanie do 60 sekund na IPv4 po aktywacji NetworkManager (IPv6 może być gotowe wcześniej). Naprawia przedwczesne przywracanie hotspotu podczas DHCP/ACD. Dodano test opóźnionego DHCP i jego timeoutu. Mała paczka: downloads/Jerzy-WiFi-Domowe-Poprawka.zip.
+
 # Zmiany
 
 ## 0.2.0 — pełne oryginalne DSP i domowe Wi-Fi

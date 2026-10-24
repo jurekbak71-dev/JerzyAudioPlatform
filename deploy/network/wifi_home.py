@@ -107,7 +107,12 @@ def worker():
  time.sleep(8);state=load();state['phase']='switching';save(state)
  try:
   run('nmcli','--wait','50','connection','up','uuid',state['new'],timeout=60)
-  if active_uuid(state['device'])!=state['new'] or not address(state['device']):raise RuntimeError('Brak potwierdzonego połączenia lub IPv4.')
+  # NetworkManager may mark activation complete after IPv6 while DHCPv4
+  # is still performing address conflict detection. Wait for usable IPv4.
+  ipv4_end=min(time.monotonic()+60,state['deadline_monotonic'])
+  while active_uuid(state['device'])!=state['new'] or not address(state['device']):
+   if time.monotonic()>=ipv4_end:raise RuntimeError('Brak potwierdzonego połączenia lub IPv4 po oczekiwaniu DHCP.')
+   time.sleep(1)
   state['addresses']=address(state['device']);state['phase']='awaiting-confirmation';save(state)
   while unexpired(state):
    if load().get('confirmed'):return

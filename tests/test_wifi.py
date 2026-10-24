@@ -44,6 +44,21 @@ class Wifi(unittest.TestCase):
    if self.state()['phase']=='awaiting-confirmation':wifi.confirm()
   with patch.object(wifi.time,'sleep',side_effect=sleep),contextlib.redirect_stdout(io.StringIO()):wifi.worker();wifi.rollback()
   self.assertEqual(self.active,self.new);self.assertEqual(self.state()['phase'],'confirmed');self.assertTrue(any(cmd[-2:]==('connection.autoconnect','yes') for cmd in self.commands));self.assertEqual(self.old.read_text(),'existing hotspot, unchanged')
+ def test_ipv6_activation_before_dhcpv4_waits_and_can_confirm(self):
+  self.prepare();checks=[]
+  def address(device):
+   checks.append(self.clock)
+   return ['192.168.100.34/24'] if self.clock>=1011 else []
+  def sleep(seconds):
+   self.clock+=seconds
+   if self.state()['phase']=='awaiting-confirmation':wifi.confirm()
+  with patch.object(wifi,'address',side_effect=address),patch.object(wifi.time,'sleep',side_effect=sleep),contextlib.redirect_stdout(io.StringIO()):wifi.worker()
+  self.assertGreaterEqual(len(checks),4);self.assertEqual(self.state()['phase'],'confirmed');self.assertEqual(self.active,self.new)
+ def test_dhcpv4_timeout_restores_hotspot(self):
+  self.prepare()
+  with patch.object(wifi,'address',return_value=[]),patch.object(wifi.time,'sleep',side_effect=lambda seconds:setattr(self,'clock',self.clock+seconds)),contextlib.redirect_stdout(io.StringIO()):
+   with self.assertRaisesRegex(RuntimeError,'DHCP'):wifi.worker()
+  self.assertEqual(self.state()['phase'],'rolled-back');self.assertEqual(self.active,'old-uuid')
  def test_connection_failure_rolls_back(self):
   self.prepare();self.fail=True
   with patch.object(wifi.time,'sleep',side_effect=lambda s:None),contextlib.redirect_stdout(io.StringIO()):
