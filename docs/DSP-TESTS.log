@@ -1,0 +1,15 @@
+PASS utility-gain-meter @ 44100 Hz, 64..1024 frames
+PASS big-muff @ 44100 Hz, 64..1024 frames
+PASS tape-drive @ 44100 Hz, 64..1024 frames
+PASS bass-ambient @ 44100 Hz, 64..1024 frames
+PASS cab-ir @ 44100 Hz, 64..1024 frames
+PASS utility-gain-meter @ 48000 Hz, 64..1024 frames
+PASS big-muff @ 48000 Hz, 64..1024 frames
+PASS tape-drive @ 48000 Hz, 64..1024 frames
+PASS bass-ambient @ 48000 Hz, 64..1024 frames
+PASS cab-ir @ 48000 Hz, 64..1024 frames
+comparison error=0
+PASS BassAmbient original comparison @ 44100, max error=0
+comparison error=0
+PASS BassAmbient original comparison @ 48000, max error=0
+PASS 1589592 checks

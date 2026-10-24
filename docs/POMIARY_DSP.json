@@ -1,0 +1,117 @@
+{
+  "environment": "Linux x86_64 cloud, offline, not Raspberry Pi",
+  "modules": {
+    "big-muff": [
+      {
+        "sample_rate": 44100,
+        "frequency_hz": 344.53125,
+        "rms": 0.09686894164100801,
+        "peak": 0.12667512893676758,
+        "thd_h2_h10": 0.10815829432316905,
+        "render_wall_seconds_including_python": 0.03135247599993818,
+        "sustain": 0.1
+      },
+      {
+        "sample_rate": 44100,
+        "frequency_hz": 344.53125,
+        "rms": 0.16719005968768597,
+        "peak": 0.2032901793718338,
+        "thd_h2_h10": 0.23781411479908893,
+        "render_wall_seconds_including_python": 0.03984822400002486,
+        "sustain": 0.5
+      },
+      {
+        "sample_rate": 44100,
+        "frequency_hz": 344.53125,
+        "rms": 0.23573573451941088,
+        "peak": 0.29368090629577637,
+        "thd_h2_h10": 0.2034074895724432,
+        "render_wall_seconds_including_python": 0.033809496999992916,
+        "sustain": 0.9
+      },
+      {
+        "sample_rate": 48000,
+        "frequency_hz": 375.0,
+        "rms": 0.09459099993884645,
+        "peak": 0.12441686540842056,
+        "thd_h2_h10": 0.1113632817151706,
+        "render_wall_seconds_including_python": 0.03685064000001148,
+        "sustain": 0.1
+      },
+      {
+        "sample_rate": 48000,
+        "frequency_hz": 375.0,
+        "rms": 0.16351103637320605,
+        "peak": 0.20080557465553284,
+        "thd_h2_h10": 0.24727384167250585,
+        "render_wall_seconds_including_python": 0.04767751200006387,
+        "sustain": 0.5
+      },
+      {
+        "sample_rate": 48000,
+        "frequency_hz": 375.0,
+        "rms": 0.23048678745361667,
+        "peak": 0.28719058632850647,
+        "thd_h2_h10": 0.2100394517266142,
+        "render_wall_seconds_including_python": 0.03445860300007553,
+        "sustain": 0.9
+      }
+    ],
+    "tape-drive": [
+      {
+        "sample_rate": 44100,
+        "frequency_hz": 344.53125,
+        "rms": 0.11490168481650316,
+        "peak": 0.16156259179115295,
+        "thd_h2_h10": 0.005675687106881766,
+        "render_wall_seconds_including_python": 0.005661486999997578,
+        "drive": 0.1
+      },
+      {
+        "sample_rate": 44100,
+        "frequency_hz": 344.53125,
+        "rms": 0.1854291689365137,
+        "peak": 0.24756278097629547,
+        "thd_h2_h10": 0.05875598933831596,
+        "render_wall_seconds_including_python": 0.00809025099988503,
+        "drive": 0.5
+      },
+      {
+        "sample_rate": 44100,
+        "frequency_hz": 344.53125,
+        "rms": 0.19243509598647826,
+        "peak": 0.2403232306241989,
+        "thd_h2_h10": 0.13089981168761552,
+        "render_wall_seconds_including_python": 0.006378535999829182,
+        "drive": 0.9
+      },
+      {
+        "sample_rate": 48000,
+        "frequency_hz": 375.0,
+        "rms": 0.11488716305862168,
+        "peak": 0.1615542471408844,
+        "thd_h2_h10": 0.005672988667259277,
+        "render_wall_seconds_including_python": 0.011823889999959647,
+        "drive": 0.1
+      },
+      {
+        "sample_rate": 48000,
+        "frequency_hz": 375.0,
+        "rms": 0.18541739104044894,
+        "peak": 0.2475593388080597,
+        "thd_h2_h10": 0.058732584381264136,
+        "render_wall_seconds_including_python": 0.006154475000130333,
+        "drive": 0.5
+      },
+      {
+        "sample_rate": 48000,
+        "frequency_hz": 375.0,
+        "rms": 0.1924344243958854,
+        "peak": 0.24031026661396027,
+        "thd_h2_h10": 0.13085911737960115,
+        "render_wall_seconds_including_python": 0.0043115490000218415,
+        "drive": 0.9
+      }
+    ]
+  }
+}

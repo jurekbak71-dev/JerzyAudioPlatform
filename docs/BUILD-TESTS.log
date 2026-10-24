@@ -1,0 +1,43 @@
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /workspace/shared/build-platform
+[1/2] Building CXX object CMakeFiles/bass-ambient.dir/modules/bass-ambient/module.cpp.o
+[2/2] Linking CXX shared module modules/bass-ambient/bass-ambient.so
+Internal ctest changing into directory: /workspace/shared/build-platform
+Test project /workspace/shared/build-platform
+    Start 1: ModulyDSP
+1/1 Test #1: ModulyDSP ........................   Passed    1.32 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   1.32 sec
+test_failed_readiness_restores_old_service_and_connections (test_activation.Activation.test_failed_readiness_restores_old_service_and_connections) ... ok
+test_corrupted_internal_payload_is_rejected (test_packages.Packages.test_corrupted_internal_payload_is_rejected) ... ok
+test_duplicate_zip_entry_is_rejected (test_packages.Packages.test_duplicate_zip_entry_is_rejected) ... ok
+test_incompatible_abi_is_rejected (test_packages.Packages.test_incompatible_abi_is_rejected) ... ok
+test_install_update_rollback_remove (test_packages.Packages.test_install_update_rollback_remove) ... ok
+test_interrupted_install_preserves_previous_version (test_packages.Packages.test_interrupted_install_preserves_previous_version) ... ok
+test_interrupted_rollback_recovers_without_losing_a_version (test_packages.Packages.test_interrupted_rollback_recovers_without_losing_a_version) ... ok
+test_wrong_checksum_does_not_change_installation (test_packages.Packages.test_wrong_checksum_does_not_change_installation) ... ok
+test_zip_path_traversal_is_rejected (test_packages.Packages.test_zip_path_traversal_is_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.017s
+
+OK
+Przywrócono poprzednie usługi i dostępny routing. Sieć i presety bez zmian.
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /workspace/shared/build-platform-arm64
+[1/4] Building CXX object CMakeFiles/jack-probe.dir/tests/jack_probe.cpp.o
+[2/4] Linking CXX executable jack-probe
+[3/4] Building CXX object CMakeFiles/bass-ambient.dir/modules/bass-ambient/module.cpp.o
+[4/4] Linking CXX shared module modules/bass-ambient/bass-ambient.so
+Internal ctest changing into directory: /workspace/shared/build-platform-arm64
+Test project /workspace/shared/build-platform-arm64
+    Start 1: ModulyDSP
+1/1 Test #1: ModulyDSP ........................   Passed   21.01 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =  21.01 sec

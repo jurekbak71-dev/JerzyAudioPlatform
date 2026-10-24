@@ -1,0 +1,15 @@
+test_failed_readiness_restores_old_service_and_connections (test_activation.Activation.test_failed_readiness_restores_old_service_and_connections) ... ok
+test_corrupted_internal_payload_is_rejected (test_packages.Packages.test_corrupted_internal_payload_is_rejected) ... ok
+test_duplicate_zip_entry_is_rejected (test_packages.Packages.test_duplicate_zip_entry_is_rejected) ... ok
+test_incompatible_abi_is_rejected (test_packages.Packages.test_incompatible_abi_is_rejected) ... ok
+test_install_update_rollback_remove (test_packages.Packages.test_install_update_rollback_remove) ... ok
+test_interrupted_install_preserves_previous_version (test_packages.Packages.test_interrupted_install_preserves_previous_version) ... ok
+test_interrupted_rollback_recovers_without_losing_a_version (test_packages.Packages.test_interrupted_rollback_recovers_without_losing_a_version) ... ok
+test_wrong_checksum_does_not_change_installation (test_packages.Packages.test_wrong_checksum_does_not_change_installation) ... ok
+test_zip_path_traversal_is_rejected (test_packages.Packages.test_zip_path_traversal_is_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.075s
+
+OK
+Przywrócono poprzednie usługi i dostępny routing. Sieć i presety bez zmian.

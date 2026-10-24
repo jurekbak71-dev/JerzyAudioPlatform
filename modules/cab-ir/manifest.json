@@ -1,0 +1,9 @@
+{
+  "id": "cab-ir",
+  "name": "Jerzy CAB / IR",
+  "version": "0.1.0",
+  "abi": 1,
+  "library": "cab-ir.so",
+  "instrument": false,
+  "category": "effect"
+}

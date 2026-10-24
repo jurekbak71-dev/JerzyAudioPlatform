@@ -1,0 +1,9 @@
+{
+  "id": "bass-ambient",
+  "name": "Jerzy BassAmbient",
+  "version": "0.1.0",
+  "abi": 1,
+  "library": "bass-ambient.so",
+  "instrument": true,
+  "category": "instrument"
+}

@@ -1,0 +1,18 @@
+JERZY AUDIO PLATFORM v0.1.0 — PACZKA TESTOWA
+
+1. Rozpakuj cały ZIP. Nie uruchamiaj instalatora wewnątrz archiwum.
+2. Podłącz Windows i Raspberry Pi do tej samej sieci domowej.
+3. Kliknij dwukrotnie START-INSTALACJA.cmd.
+4. Jeżeli bassambient.local nie zostanie znaleziony, podaj IP z routera.
+5. Podaj hasło użytkownika jerzy w komunikacie OpenSSH.
+6. Najpierw nastąpi kontrola sum i STAGING. Nie wyłącza on MultiFX.
+7. Aktywacja następuje dopiero po wpisaniu TAK. Może wymagać hasła sudo.
+8. Po udanej aktywacji instalator wyświetli rzeczywisty adres panelu.
+
+Wymagania Pi: Linux ARM64, glibc >= 2.36, libstdc++ z GCC >= 12,
+Python >= 3.9, działający JACK2 oraz biblioteka libjack.so.0.
+Pakiet nie pobiera zależności na Pi. Przy ich braku przerwie instalację
+przed zmianą działającego systemu. Przeczytaj INSTRUKCJA_PL.html.
+
+UWAGA: brak testów na fizycznym Raspberry Pi/HeadRush i Windows.
+Nie traktuj tej paczki jako stabilnego wydania produkcyjnego.

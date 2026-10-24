@@ -1,0 +1,9 @@
+{
+  "id": "tape-drive",
+  "name": "Jerzy Tape Drive",
+  "version": "0.1.0",
+  "abi": 1,
+  "library": "tape-drive.so",
+  "instrument": false,
+  "category": "effect"
+}

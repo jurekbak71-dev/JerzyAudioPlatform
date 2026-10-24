@@ -1,0 +1,9 @@
+{
+  "id": "big-muff",
+  "name": "Jerzy Fuzz typu Big Muff",
+  "version": "0.1.0",
+  "abi": 1,
+  "library": "big-muff.so",
+  "instrument": false,
+  "category": "effect"
+}

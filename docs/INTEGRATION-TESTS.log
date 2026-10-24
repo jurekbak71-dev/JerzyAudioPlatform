@@ -1,0 +1,122 @@
+PASS Chromium 390×844: instrument start, mixer, preset, library, diagnostics, no JS errors or horizontal overflow
+{
+  "stress_seconds": 30.0,
+  "graph_cycles": 160,
+  "captured_audio": {
+    "samples": 2609664,
+    "rms": 0.0272626,
+    "peak": 0.181993
+  },
+  "status": {
+    "ok": true,
+    "client": "JerzyAudioPlatform",
+    "sample_rate": 44100,
+    "buffer": 256,
+    "buffer_ms": 5.80499,
+    "cpu": 15.7615,
+    "xruns": 64,
+    "clips": 0,
+    "invalid_samples": 0,
+    "blocks": 5544,
+    "midi_overflow": 0,
+    "restart_required": false,
+    "peak": 0.0171214,
+    "rms": 0.00908873,
+    "master": 0.7,
+    "last_cc": 74,
+    "learn_node": 0,
+    "bpm": 120,
+    "limiter": true,
+    "ceiling": 0.98,
+    "buses": [
+      {
+        "gain": 0.7,
+        "pan": 0,
+        "mute": false,
+        "solo": false,
+        "peak": 0,
+        "rms": 0
+      },
+      {
+        "gain": 0.7,
+        "pan": 0,
+        "mute": false,
+        "solo": false,
+        "peak": 0.0244591,
+        "rms": 0.0129839
+      }
+    ]
+  }
+}
+{
+  "result": "PASS",
+  "checks": [
+    "JACK ports and unique names",
+    "real audio gain and bypass",
+    "native MIDI CC learn",
+    "module preset restore",
+    "live graph add/move/remove",
+    "HTTP panel",
+    "session save/load with Unicode",
+    "failed graph transaction",
+    "invalid parameter rejection",
+    "BassAmbient in independent instrument bus"
+  ],
+  "audio": {
+    "baseline": {
+      "samples": 44544,
+      "rms": 0.0344585,
+      "peak": 0.049
+    },
+    "gain_minus_12dB": {
+      "samples": 44544,
+      "rms": 0.00899166,
+      "peak": 0.0282945
+    },
+    "bypass": {
+      "samples": 44544,
+      "rms": 0.0344585,
+      "peak": 0.049
+    }
+  },
+  "status": {
+    "ok": true,
+    "client": "JerzyAudioPlatform",
+    "sample_rate": 44100,
+    "buffer": 256,
+    "buffer_ms": 5.80499,
+    "cpu": 32.8612,
+    "xruns": 94,
+    "clips": 0,
+    "invalid_samples": 0,
+    "blocks": 6058,
+    "midi_overflow": 0,
+    "restart_required": false,
+    "peak": 0.0152629,
+    "rms": 0.00892873,
+    "master": 0.7,
+    "last_cc": 74,
+    "learn_node": 0,
+    "bpm": 120,
+    "limiter": true,
+    "ceiling": 0.98,
+    "buses": [
+      {
+        "gain": 0.7,
+        "pan": 0,
+        "mute": false,
+        "solo": false,
+        "peak": 0,
+        "rms": 0
+      },
+      {
+        "gain": 0.7,
+        "pan": 0,
+        "mute": false,
+        "solo": false,
+        "peak": 0.0218042,
+        "rms": 0.0127553
+      }
+    ]
+  }
+}

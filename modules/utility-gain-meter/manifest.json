@@ -1,0 +1,9 @@
+{
+  "id": "utility-gain-meter",
+  "name": "Poziom i miernik",
+  "version": "0.1.0",
+  "abi": 1,
+  "library": "utility-gain-meter.so",
+  "instrument": false,
+  "category": "effect"
+}
