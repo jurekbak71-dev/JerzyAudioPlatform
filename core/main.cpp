@@ -37,7 +37,7 @@ uint64_t cpuTime(){timespec t{};clock_gettime(CLOCK_THREAD_CPUTIME_ID,&t);return
 std::string json(const std::string& s){std::ostringstream o;o<<'"';for(unsigned char c:s){if(c=='"'||c=='\\')o<<'\\'<<c;else if(c<32)o<<"\\u"<<std::hex<<std::setw(4)<<std::setfill('0')<<int(c)<<std::dec;else o<<c;}o<<'"';return o.str();}
 struct Node {
  void* lib=nullptr;const JAModule* api=nullptr;void* instance=nullptr;unsigned id;int route;std::string path,asset;
- std::array<std::atomic<float>,JA_MAX_PARAMETERS> params{};std::array<std::atomic<int>,JA_MAX_PARAMETERS> mapping{};std::atomic<bool> bypass{false},suspended{false},resetLoad{false};std::atomic<unsigned> fault{0};std::atomic<float> cost{0},wallCost{0};double average=0;unsigned overruns=0;std::atomic<int> bypassMapping{-1},bypassMode{0};bool pressed=false;float mix=0;
+ std::array<std::atomic<float>,JA_MAX_PARAMETERS> params{};std::array<std::atomic<int>,JA_MAX_PARAMETERS> mapping{};std::atomic<bool> bypass{false},suspended{false},resetLoad{false};std::atomic<unsigned> fault{0},faultCause{0};std::atomic<float> cost{0},wallCost{0},averageCost{0},peakCost{0},faultBudget{0},faultGraphCost{0};double average=0;unsigned overruns=0;std::atomic<int> bypassMapping{-1},bypassMode{0};bool pressed=false;float mix=0;
  Node(unsigned i,int r,std::string p,std::string a,double sr):id(i),route(r),path(std::move(p)),asset(std::move(a)){
   for(auto& value:mapping)value.store(-1);
   lib=dlopen(path.c_str(),RTLD_NOW|RTLD_LOCAL);if(!lib)throw std::runtime_error("Nie można otworzyć biblioteki modułu");
@@ -92,12 +92,12 @@ struct Engine {
   for(unsigned i=0;i<count;++i)if(events[i].size==3&&(events[i].bytes[0]&240)==176)e.lastCC.store((events[i].bytes[0]&15)*128+events[i].bytes[1]);
   const double tempo=e.bpm.load(std::memory_order_relaxed);const auto learnNode=e.learnNode.load(std::memory_order_relaxed),learnParameter=e.learnParameter.load(std::memory_order_relaxed);
   for(const auto& owner:g->nodes){Node& node=*owner;auto& a=e.audio[node.route];
-   if(node.resetLoad.exchange(false)){node.average=0;node.overruns=0;node.pressed=false;}
+   if(node.resetLoad.exchange(false)){node.average=0;node.overruns=0;node.pressed=false;if(!node.fault.load()){node.peakCost.store(0);node.averageCost.store(0);node.faultCause.store(0);}}
    const int bypassMapping=node.bypassMapping.load(std::memory_order_relaxed);
    if(bypassMapping>=0)for(unsigned m=0;m<count;++m){auto& event=events[m];if(event.size<2)continue;const int type=event.bytes[0]&240;const int key=(event.bytes[0]&15)*128+event.bytes[1]+(type==192?2048:0);if(key!=bypassMapping||(type!=192&&(type!=176||event.size!=3)))continue;
     const int mode=node.bypassMode.load(std::memory_order_relaxed);const bool pressed=type==192||event.bytes[2]>0;
     if(mode==1&&type==176)node.bypass.store(event.bytes[2]<64);else if(pressed&&(type==192||!node.pressed))node.bypass.store(!node.bypass.load());else{node.pressed=pressed;continue;}
-    node.pressed=pressed;node.suspended.store(false);node.fault.store(0);node.average=0;node.overruns=0;
+    node.pressed=pressed;node.suspended.store(false);node.fault.store(0);node.faultCause.store(0);node.average=0;node.overruns=0;
    }
    const bool bypass=node.bypass.load(std::memory_order_relaxed)||node.suspended.load(std::memory_order_relaxed);if(bypass&&node.mix==0)continue;
    std::array<float,JA_MAX_PARAMETERS> values{};for(unsigned p=0;p<node.api->parameter_count;++p){
@@ -115,8 +115,9 @@ struct Engine {
    const double cpu=double(cpuTime()-cpuStarted)*1e-9;
    node.cost.store(float(cpu/budget*100),std::memory_order_relaxed);node.wallCost.store(float(elapsed/budget*100),std::memory_order_relaxed);
    const double alpha=1-std::exp(-budget/.05);node.average+=(cpu/budget-node.average)*alpha;
+   node.averageCost.store(float(node.average*100),std::memory_order_relaxed);node.peakCost.store(std::max(node.peakCost.load(std::memory_order_relaxed),float(cpu/budget*100)),std::memory_order_relaxed);
    node.overruns=node.average>.95?node.overruns+1:0;
-   if(node.overruns>=6||cpu>budget*8){node.fault.store(1);node.suspended.store(true);node.mix=0;continue;}
+   if(node.overruns>=6||cpu>budget*8){node.faultCause.store(cpu>budget*8?2:1);node.faultBudget.store(float(budget*1000));e.protectionEvents.fetch_add(1);node.fault.store(1);node.suspended.store(true);node.mix=0;continue;}
    for(unsigned i=0;i<frames;++i){node.mix=std::clamp(node.mix+(bypass?-1.f:1.f)/float(e.sr*.01),0.f,1.f);
     for(int c=0;c<2;++c){float v=e.wet[c][i];if(!std::isfinite(v)||std::abs(v)>32){v=0;node.fault.store(2);node.suspended.store(true);e.badSamples.fetch_add(1,std::memory_order_relaxed);}
      if(node.api->instrument)a[c][i]+=v*node.mix;else a[c][i]+=(v-a[c][i])*node.mix;
@@ -145,7 +146,7 @@ struct Engine {
   const double callbackCPUSeconds=double(cpuTime()-callbackCPU)*1e-9;
   e.overloadedBlocks=callbackCPUSeconds>double(frames)/e.sr*1.05?e.overloadedBlocks+1:0;
   if(e.overloadedBlocks>=6){Node* expensive=nullptr;for(const auto& owner:g->nodes)if(!owner->bypass.load()&&!owner->suspended.load()&&(!expensive||owner->cost.load()>expensive->cost.load()))expensive=owner.get();
-   if(expensive){expensive->fault.store(1);expensive->suspended.store(true);expensive->mix=0;e.protectionEvents.fetch_add(1);}e.overloadedBlocks=0;
+   if(expensive){expensive->faultCause.store(3);expensive->faultGraphCost.store(float(callbackCPUSeconds/(double(frames)/e.sr)*100));expensive->faultBudget.store(float(1000.*frames/e.sr));expensive->fault.store(1);expensive->suspended.store(true);expensive->mix=0;e.protectionEvents.fetch_add(1);}e.overloadedBlocks=0;
   }
   e.peak.store(maxPeak);e.rms.store(float(std::sqrt(squares/(2*frames))));e.beat+=frames*tempo/(60*e.sr);e.silent.store(e.fade==0);e.observed.store(g);e.blocks.fetch_add(1);e.busy.store(false);return 0;
  }
@@ -166,7 +167,7 @@ struct Engine {
   for(int r=0;r<2;++r){if(r)o<<',';auto& b=bus[r];o<<"{\"gain\":"<<b.gain<<",\"pan\":"<<b.pan<<",\"mute\":"<<(b.mute?"true":"false")<<",\"solo\":"<<(b.solo?"true":"false")<<",\"peak\":"<<b.peak<<",\"rms\":"<<b.rms<<'}';}o<<"]}";return o.str();
  }
  std::string list(bool staging=false){std::ostringstream o;o<<"{\"ok\":true,\"nodes\":[";bool first=true;for(auto& n:(staging&&pending?pending.get():graph.load())->nodes){if(!first)o<<',';first=false;
-  o<<"{\"id\":"<<n->id<<",\"module\":"<<json(n->api->id)<<",\"name\":"<<json(n->api->name)<<",\"path\":"<<json(n->path)<<",\"asset\":"<<json(n->asset)<<",\"route\":"<<n->route<<",\"instrument\":"<<(n->api->instrument?"true":"false")<<",\"bypass\":"<<((n->bypass.load()||n->suspended.load())?"true":"false")<<",\"user_bypass\":"<<(n->bypass?"true":"false")<<",\"fault\":"<<n->fault<<",\"cpu_percent\":"<<n->cost<<",\"wall_percent\":"<<n->wallCost<<",\"latency\":"<<n->api->latency(n->instance)<<",\"parameters\":[";
+  o<<"{\"id\":"<<n->id<<",\"module\":"<<json(n->api->id)<<",\"name\":"<<json(n->api->name)<<",\"path\":"<<json(n->path)<<",\"asset\":"<<json(n->asset)<<",\"route\":"<<n->route<<",\"instrument\":"<<(n->api->instrument?"true":"false")<<",\"bypass\":"<<((n->bypass.load()||n->suspended.load())?"true":"false")<<",\"user_bypass\":"<<(n->bypass?"true":"false")<<",\"fault\":"<<n->fault<<",\"cpu_percent\":"<<n->cost<<",\"wall_percent\":"<<n->wallCost<<",\"cpu_average_percent\":"<<n->averageCost<<",\"cpu_peak_percent\":"<<n->peakCost<<",\"fault_cause\":"<<n->faultCause<<",\"fault_budget_ms\":"<<n->faultBudget<<",\"fault_graph_cpu_percent\":"<<n->faultGraphCost<<",\"latency\":"<<n->api->latency(n->instance)<<",\"parameters\":[";
   for(unsigned p=0;p<n->api->parameter_count;++p){if(p)o<<',';const auto& v=n->api->parameters[p];o<<"{\"id\":"<<json(v.id)<<",\"label\":"<<json(v.label)<<",\"unit\":"<<json(v.unit)<<",\"choices\":"<<json(v.choices)<<",\"min\":"<<v.minimum<<",\"max\":"<<v.maximum<<",\"default\":"<<v.initial<<",\"integer\":"<<v.integer<<",\"mapping\":"<<n->mapping[p]<<",\"value\":"<<n->params[p]<<'}';}o<<"]}";
   }o<<"]}";return o.str();}
  std::string command(const std::string& line){std::istringstream in(line);std::string cmd;in>>cmd;

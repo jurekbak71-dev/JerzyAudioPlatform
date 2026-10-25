@@ -80,7 +80,7 @@ def main():
     value=next(n for n in core('LIST')['nodes'] if n['id']==overload)
     if value['fault']!=1 or not value['bypass']:raise ValueError('guard pending')
     return value
-   wait(protected);core(f'REMOVE {overload}');assert core('STATUS')['blocks']>before
+   guard=wait(protected);assert guard['fault_cause'] in (1,3) and guard['cpu_percent']>95 and guard['fault_budget_ms']>0,guard;core(f'REMOVE {overload}');assert core('STATUS')['blocks']>before
    # Exercise the real buffer helper against this JACK server. Any service
    # restart is an error; node IDs, parameters and actual connections survive.
    bufferCode="import importlib.util,pathlib,sys; sys.path.insert(0,"+repr(str(ROOT/'deploy/raspberry-pi'))+"); p="+repr(str(ROOT/'deploy/raspberry-pi/control.py'))+"; s=importlib.util.spec_from_file_location('control',p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); m.BASE=pathlib.Path("+repr(str(tmp))+ "); m.systemctl=lambda *a,**k: (_ for _ in ()).throw(AssertionError('unexpected service restart')); m.buffer_change(512); m.buffer_change(128); m.buffer_change(256)"
@@ -95,8 +95,20 @@ def main():
     nodes=[n for n in core('LIST')['nodes'] if n['id'] in medium]
     if not any(n['fault']==1 and n['bypass'] for n in nodes):raise ValueError('aggregate guard pending')
     return nodes
-   wait(aggregate_protected)
+   guarded=wait(aggregate_protected);assert any(n.get('fault_cause')==3 and n['fault_graph_cpu_percent']>105 for n in guarded),guarded
    for n in medium:core(f'REMOVE {n}')
+   subprocess.run([sys.executable,'-c',bufferCode],env=env,check=True,timeout=30)
+   # Distinguish a single expensive callback from sustained or graph overload.
+   subprocess.run([sys.executable,'-c',bufferCode.replace('m.buffer_change(512); m.buffer_change(128); m.buffer_change(256)','m.buffer_change(128)')],env=env,check=True,timeout=15)
+   overload=core('ADD 0 '+json.dumps(str(build/'overload-fixture.so'))+' ""')['id']
+   spike=wait(protected);assert spike['fault_cause']==2 and spike['cpu_percent']>800 and 2<spike['fault_budget_ms']<4,spike
+   core(f'REMOVE {overload}')
+   subprocess.run([sys.executable,'-c',bufferCode],env=env,check=True,timeout=30)
+   # 23 ms / 1024 frames = 99%: above the 95% node limit, below 105% graph limit.
+   subprocess.run([sys.executable,'-c',bufferCode.replace('m.buffer_change(512); m.buffer_change(128); m.buffer_change(256)','m.buffer_change(1024)')],env=env,check=True,timeout=15)
+   overload=core('ADD 0 '+json.dumps(str(build/'overload-fixture.so'))+' "23"')['id']
+   sustained=wait(protected);assert sustained['fault_cause']==1 and sustained['cpu_average_percent']>95,sustained
+   core(f'REMOVE {overload}')
    subprocess.run([sys.executable,'-c',bufferCode],env=env,check=True,timeout=30)
    # THRU affects only direct physical audio edges, preserving host routing.
    thruCode="import importlib.util,pathlib,sys; sys.path.insert(0,"+repr(str(ROOT/'deploy/raspberry-pi'))+"); p="+repr(str(ROOT/'deploy/raspberry-pi/control.py'))+"; s=importlib.util.spec_from_file_location('control',p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); m.BASE=pathlib.Path("+repr(str(tmp))+"); j=m.Jack(); j.connect('system:capture_1','system:playback_2'); assert j.direct_thru(); m.thru(False); assert not j.direct_thru(); m.thru(True); assert ['system:capture_1','system:playback_2'] in j.direct_thru(); j.disconnect('system:capture_1','system:playback_2'); j.close()"

@@ -39,6 +39,16 @@ const fs=require('fs');
   await page.screenshot({path:process.argv[3],fullPage:true});
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth);
   if(overflow)throw Error('Panel wychodzi poza szerokość telefonu');if(errors.length)throw Error(errors.join('\n'));
+  await page.route('**/api/state',async route=>{
+   const response=await route.fetch();const value=await response.json();const node=value.nodes.find(n=>n.module==='bass-ambient-pro-original');
+   if(node)Object.assign(node,{fault:1,bypass:true,user_bypass:false,fault_cause:3,cpu_percent:65.2,cpu_average_percent:61.4,cpu_peak_percent:88.7,fault_graph_cpu_percent:121.8,fault_budget_ms:5.80499});
+   await route.fulfill({response,json:value});
+  });
+  await page.getByRole('button',{name:'INSTRUMENTY',exact:true}).click();
+  await page.getByText(/łączne przeciążenie łańcucha/).waitFor();
+  await page.getByText(/cały łańcuch 121.8%/).waitFor();
+  if(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth))throw Error('Fault diagnostic overflows mobile viewport');
+  if(errors.length)throw Error(errors.join('\n'));
   console.log('PASS Chromium desktop + 390×844: dynamic MX algorithm, PRO volume/modal tabs, instrument start, mixer, preset, library, diagnostics, no JS errors or horizontal overflow');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1)});

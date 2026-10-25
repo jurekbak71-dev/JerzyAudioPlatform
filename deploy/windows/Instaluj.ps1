@@ -6,7 +6,7 @@ function Run-External([string]$Program, [string[]]$Arguments) {
     if ($LASTEXITCODE -ne 0) { throw "Polecenie $Program zakończyło się błędem $LASTEXITCODE." }
 }
 try {
-    Write-Host 'JERZY AUDIO PLATFORM v0.3.0 — instalator testowy' -ForegroundColor Green
+    Write-Host 'JERZY AUDIO PLATFORM v0.3.1 — instalator testowy' -ForegroundColor Green
     Write-Host 'Ta paczka wymaga testu na Raspberry Pi. Nie jest wydaniem potwierdzonym sprzętowo.'
     foreach ($program in @('ssh.exe','scp.exe')) {
         if (-not (Get-Command $program -ErrorAction SilentlyContinue)) { throw "Brak $program. Włącz Klient OpenSSH w opcjonalnych funkcjach Windows i uruchom ponownie instalator." }
@@ -40,9 +40,9 @@ try {
         Run-External 'ssh.exe' @('-t',$target,$command)
         exit 0
     }
-    $archive = Join-Path $PSScriptRoot 'JerzyAudioPlatform-v0.3.0-RPi4-arm64.tar.gz'
+    $archive = Join-Path $PSScriptRoot 'JerzyAudioPlatform-v0.3.1-RPi4-arm64.tar.gz'
     $sums = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'SHA256.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-    $expected = $sums.'JerzyAudioPlatform-v0.3.0-RPi4-arm64.tar.gz'
+    $expected = $sums.'JerzyAudioPlatform-v0.3.1-RPi4-arm64.tar.gz'
     if ($expected -notmatch '^[a-f0-9]{64}$') { throw 'Brak sumy SHA256 paczki ARM64.' }
     if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Paczka ARM64 jest uszkodzona. Pobierz ZIP ponownie.' }
     Write-Host 'Przy pierwszym połączeniu zweryfikuj odcisk klucza SSH Raspberry Pi. Hasło wpisuj w komunikacie OpenSSH.'

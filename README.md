@@ -1,10 +1,10 @@
-# Jerzy Audio Platform 0.3.0
+# Jerzy Audio Platform 0.3.1
 
 Modułowy host JACK2 dla Raspberry Pi, pełne oryginalne DSP oraz polski panel WWW na porcie 8093. Dotychczasowe repozytoria i ich źródła pozostają bez zmian.
 
 ## Instalacja i aktualizacja
 
-**[Pobierz instalator Windows 0.3.0](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/download/v0.3.0-preview.2/JerzyAudioPlatform-v0.3.0-Windows-Installer.zip)** · [Wszystkie paczki](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/tag/v0.3.0-preview.2)
+**[Pobierz instalator Windows 0.3.1](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/download/v0.3.1-preview.1/JerzyAudioPlatform-v0.3.1-Windows-Installer.zip)** · [Wszystkie paczki](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/tag/v0.3.1-preview.1)
 
 1. Rozpakuj cały ZIP i kliknij `START-INSTALACJA.cmd`.
 2. Podaj aktualne IP Pi i hasło. Po udanym stagingu wpisz `TAK`, aby aktywować aktualizację.
@@ -15,7 +15,7 @@ Modułowy host JACK2 dla Raspberry Pi, pełne oryginalne DSP oraz polski panel W
 
 ## Naprawy po testach Pi
 
-[Instrukcja aktualizacji i zakres napraw 0.3.0](docs/NAPRAWY_0.3.0_PL.md). SYSTEM stosuje profil przez kontrolowany restart JACK, odtwarza sesję i routing, a przy błędzie przywraca ustawienia. Panel ma przyciski odzyskiwania audio, ochronę przeciążenia, czytelny CAB/IR i nowe sekcje studyjne. Głośność instrumentów jest na górze, MX pokazuje tylko parametry wybranego algorytmu.
+[Instrukcja aktualizacji i zakres napraw 0.3.1](docs/NAPRAWY_0.3.1_PL.md). SYSTEM stosuje profil przez kontrolowany restart JACK, odtwarza sesję i routing, a przy błędzie przywraca ustawienia. Panel ma przyciski odzyskiwania audio, ochronę przeciążenia, czytelny CAB/IR i nowe sekcje studyjne. Głośność instrumentów jest na górze, MX pokazuje tylko parametry wybranego algorytmu.
 
 ## Bluetooth i uruchamianie PRO
 

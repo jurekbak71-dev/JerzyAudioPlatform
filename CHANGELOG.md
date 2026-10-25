@@ -1,3 +1,7 @@
+# 0.3.1-preview.1
+
+Ochrona pokazuje przyczynę, średnie i szczytowe CPU oraz budżet bloku. Odświeżanie panelu uwzględnia nowe pomiary przy aktywnej ochronie. DSP i progi ochrony bez zmian względem 0.3.0. Wydajność fizycznego Pi niepotwierdzona; to poprawka diagnostyczna.
+
 # 0.3.0-preview.2
 
 Jawny transport JAM dla PRO; dokładne optymalizacje DSP; rozdzielenie ochrony CPU i ręcznego bypassu. Transakcyjna konfiguracja JACK i dostępny panel przy niedziałającym silniku. Usługa BlueZ, BLE MIDI → JACK, cztery mapowania CC/PC i klient PAN dla Hotspotu iPhone. Szczegóły i ograniczenia: docs/NAPRAWY_0.3.0_PL.md.
