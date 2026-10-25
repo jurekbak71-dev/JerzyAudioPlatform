@@ -1,3 +1,7 @@
+# 0.3.1-preview.4
+
+PRO 0.3.1: szybsza numeryczna realizacja tanh w zakresie [-1,1], z oryginalną funkcją poza tym zakresem. Bez ograniczania głosów i FX; test Flow obejmuje 20 sekund i pięć silników. Big Muff 0.2.2: cache identycznych macierzy liniowych dla adaptacyjnych podkroków i wektorowe obliczanie charakterystyk elementów, bez zmiany solvera nieliniowego. SYSTEM: wykrywanie właściwego procesu JACK wewnątrz grupy usługi, obsługa lokalnej instalacji root i nazwy argv bez pełnej ścieżki. Źródła vendor pozostają niezmienione. Próba na fizycznym Pi nadal wymagana.
+
 # 0.3.1-preview.2
 
 Start JAM i Włącz moduł po ochronie odtwarzają tylko zawieszony moduł, zachowując parametry i MIDI. Ochrona pokazuje przyczynę, średnie i szczytowe CPU oraz budżet bloku. Odświeżanie panelu uwzględnia nowe pomiary przy aktywnej ochronie. DSP i progi ochrony bez zmian względem 0.3.0. Wydajność fizycznego Pi niepotwierdzona; naprawa odzyskiwania i diagnostyki.

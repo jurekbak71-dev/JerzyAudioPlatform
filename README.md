@@ -4,14 +4,14 @@ Modułowy host JACK2 dla Raspberry Pi, pełne oryginalne DSP oraz polski panel W
 
 ## Instalacja i aktualizacja
 
-**[Pobierz instalator Windows 0.3.1](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/download/v0.3.1-preview.3/JerzyAudioPlatform-v0.3.1-Windows-Installer.zip)** · [Wszystkie paczki](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/tag/v0.3.1-preview.3)
+**[Pobierz instalator Windows 0.3.1](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/download/v0.3.1-preview.4/JerzyAudioPlatform-v0.3.1-Windows-Installer.zip)** · [Wszystkie paczki](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/tag/v0.3.1-preview.4)
 
 1. Rozpakuj cały ZIP i kliknij `START-INSTALACJA.cmd`.
 2. Podaj aktualne IP Pi i hasło. Po udanym stagingu wpisz `TAK`, aby aktywować aktualizację.
 3. `WIFI-DOMOWE.cmd` przełącza Pi do domowego Wi-Fi z potwierdzeniem i próbą powrotu po pięciu minutach. Nie kasuje hotspotu.
 4. `INSTALUJ-MODUL.cmd` instaluje wybrane pojedyncze paczki z katalogu SHA256. W panelu: **ŁAŃCUCH → tor → Dodaj moduł**.
 
-Wydanie `preview.3` dodaje temperaturę, taktowanie i flagi ograniczania CPU Pi do raportu diagnostycznego oraz ogranicza czas odczytów Bluetooth/PAN, aby ich zawieszenie nie blokowało statusu audio. Nie potwierdza jeszcze naprawy przeciążeń Bass Ambient PRO ani Big Muff na fizycznym Pi. Instalator uruchom z komputera w tej samej sieci co `bassambient.local`.
+Wydanie `preview.4` zmniejsza koszt CPU PRO, zachowując głosy i efekty, buforuje powtarzane obliczenia liniowe obwodów Big Muff oraz rozpoznaje JACK uruchomiony przez skrypt usługi lub z lokalnej instalacji administratora. Moduły mają podniesione wersje, aby aktywacja faktycznie zastąpiła poprzednie biblioteki z kopią do rollbacku. Testy chmurowe nie potwierdzają jeszcze usunięcia trzasków na fizycznym Pi. Instalator uruchom z komputera w tej samej sieci co `bassambient.local`.
 
 [Instrukcja modułów i Wi-Fi](docs/MODULY_I_WIFI_PL.html). JACK i systemowe biblioteki muszą być wcześniej dostępne. Instalacja brakującego BlueZ wymaga Internetu na Pi. Aktywacja zachowuje punkt przywracania poprzedniej wersji i ustawienia użytkownika.
 
