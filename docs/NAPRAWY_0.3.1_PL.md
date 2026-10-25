@@ -11,3 +11,5 @@ Ambient w trybie Flow nakłada nowe akordy na wybrzmienia starych; obciążenie 
 Nie zmieniono DSP względem 0.3.0. Próby dalszych optymalizacji nie wykazały istotnego zysku w wykonanym pomiarze, dlatego nie są częścią tej poprawki. Nie ograniczono głosów ani racków FX.
 
 Przyczyna zgłoszonego wyłączenia na Pi przy 256 próbkach nadal wymaga rzeczywistych pomiarów. Nie potwierdzono sprzętowo naprawy trzasków. Funkcje Bluetooth i SYSTEM pozostają jak w 0.3.0; radio Hotone/iPhone i sterownik HeadRush wymagają próby sprzętowej.
+
+Raport diagnostyczny zawiera teraz `hardware.host_health`: temperaturę w °C, bieżące taktowanie CPU w MHz oraz flagi `vcgencmd get_throttled`. Flagi bieżące są oddzielone od historycznych (`*_occurred`, od uruchomienia Pi). Brak odczytu ma wartość `null`, a nie zero. Odczyty są odświeżane co pięć sekund; nie zmieniają ustawień Pi, bufora ani DSP. Dane pomagają sprawdzić ograniczenia zasilania i temperatury, ale same nie potwierdzają przyczyny przeciążenia.

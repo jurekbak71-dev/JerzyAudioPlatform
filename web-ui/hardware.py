@@ -6,6 +6,27 @@ sys.path.insert(0,str(ROOT/'deploy/connectivity'))
 from client import call as hardware_call,status as hardware_status
 from manager import atomic_json
 
+def pi_health(root=Path('/sys')):
+ """Read-only measurements; absent sensors are unknown, never a healthy zero."""
+ value={'temperature_c':None,'cpu_frequency_mhz':None,'throttled_raw':None,'flags':None}
+ for key,path,scale in (
+  ('temperature_c','class/thermal/thermal_zone0/temp',1000),
+  ('cpu_frequency_mhz','devices/system/cpu/cpu0/cpufreq/scaling_cur_freq',1000)):
+  try:
+   number=int((root/path).read_text().strip())
+   if number>=0:value[key]=number/scale
+  except (OSError,ValueError):pass
+ # vcgencmd is only available on Pi. Never require it on other hosts.
+ try:
+  result=subprocess.run(['vcgencmd','get_throttled'],capture_output=True,text=True,timeout=1,check=True)
+  match=re.fullmatch(r'throttled=(0x[0-9a-fA-F]+)',result.stdout.strip())
+  if match:
+   bits=int(match[1],16);value['throttled_raw']=match[1]
+   names={0:'under_voltage',1:'frequency_capped',2:'throttled',3:'soft_temperature_limit',16:'under_voltage_occurred',17:'frequency_capped_occurred',18:'throttled_occurred',19:'soft_temperature_limit_occurred'}
+   value['flags']={name:bool(bits&(1<<bit)) for bit,name in names.items()}
+ except (OSError,subprocess.SubprocessError):pass
+ return value
+
 class Hardware:
  def init_hardware(self):self.operation={'pending':False};self.last_core=None;self.midi_learning=None
  def core_state(self):
@@ -23,6 +44,10 @@ class Hardware:
    value['engine_available']=False;value['engine_error']=str(error);return value
  def hardware_state(self):
   value=hardware_status();value['operation']=dict(self.operation)
+  now=time.monotonic()
+  if now>=getattr(self,'_health_deadline',0):
+   self._health=pi_health();self._health_deadline=now+5
+  value['host_health']=copy.deepcopy(self._health)
   file=self.data/'bluetooth-midi.json';bridge=self.data/'bluetooth-midi-bridge.json'
   for key,path in [('relay',file),('jack_midi',bridge)]:
    try:value[key]=json.loads(path.read_text()) if path.exists() else {}
