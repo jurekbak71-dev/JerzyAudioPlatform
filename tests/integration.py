@@ -37,11 +37,43 @@ def main():
    core(f'MAP {node} 0 -1')
    core(f'PARAM {node} 0 -12');quiet=probe();assert quiet['rms']<baseline['rms']*.4,(baseline,quiet)
    core(f'BYPASS {node} 1');bypass=probe();assert bypass['rms']>quiet['rms']*2
+   # The native Bluetooth bridge delivers real CC/PC into the JACK callback.
+   bridge=start([str(build/'jerzy-midi-bridge'),str(tmp/'midi.sock'),str(tmp/'midi-status.json')],'midi')
+   def bridge_ready():
+    if not (tmp/'midi.sock').exists():raise ValueError('bridge starting')
+    return True
+   wait(bridge_ready)
+   def midi(data):
+    with socket.socket(socket.AF_UNIX,socket.SOCK_DGRAM) as channel:channel.sendto(data,str(tmp/'midi.sock'))
+   midi(('@'+status['client']+':midi').encode())
+   def connected_bridge():
+    value=json.loads((tmp/'midi-status.json').read_text())
+    if not value.get('connected'):raise ValueError('connecting MIDI')
+    return value
+   wait(connected_bridge)
+   core(f'MAPBYPASS {node} 21 0')
+   def bypass_is(expected):
+    value=core('LIST')['nodes'][0]['user_bypass']
+    if value!=expected:raise ValueError('MIDI not delivered yet')
+    return True
+   midi(bytes([176,21,127]));wait(lambda:bypass_is(False))
+   midi(bytes([176,21,127]));time.sleep(.04);bypass_is(False)
+   midi(bytes([176,21,0]));midi(bytes([176,21,127]));wait(lambda:bypass_is(True))
+   core(f'MAPBYPASS {node} 2055 0');time.sleep(.03)
+   midi(bytes([192,7]));wait(lambda:bypass_is(False))
+   midi(bytes([192,7]));wait(lambda:bypass_is(True))
+   core(f'MAPBYPASS {node} -1 0')
    # Live graph swapping while JACK callback continues.
    before=core('STATUS')['blocks']
    for i in range(12):
     n=core('ADD 0 '+json.dumps(str(build/'modules/big-muff/big-muff.so'))+' ""')['id'];core(f'MOVE {n} 0');core(f'REMOVE {n}')
    assert core('STATUS')['blocks']>before
+   # A scheduler delay is not evidence that a module consumed the CPU budget.
+   delayed=core('ADD 0 '+json.dumps(str(build/'overload-fixture.so'))+' "-6"')['id']
+   time.sleep(.3)
+   delayed_state=next(n for n in core('LIST')['nodes'] if n['id']==delayed)
+   assert delayed_state['fault']==0 and not delayed_state['bypass'],delayed_state
+   core(f'REMOVE {delayed}')
    # A costly module must not take away bypass/control of the rest of the graph.
    overload=core('ADD 0 '+json.dumps(str(build/'overload-fixture.so'))+' ""')['id']
    def protected():
@@ -103,7 +135,7 @@ def main():
    old=tmp/'data/presets/CAB migration.json';legacy=json.loads(old.read_text());next(n for n in legacy['nodes'] if n['module']=='cab-ir')['parameters']=nodeState['parameters'][:1];old.write_text(json.dumps(legacy))
    action({'action':'preset-load','name':'CAB migration'});cab=next(n for n in get('/api/state')['nodes'] if n['module']=='cab-ir');assert len(cab['parameters'])==3
    action({'action':'bypass','id':cab['id'],'value':1});action({'action':'remove','id':cab['id']})
-   synth=action({'action':'add','module':'bass-ambient-pro-original','route':1})['id'];nodes=get('/api/state')['nodes'];bass=next(n for n in nodes if n['id']==synth);idx=next(i for i,p in enumerate(bass['parameters']) if p['id']=='bass');action({'action':'param','id':synth,'index':idx,'value':1});auto=next(i for i,p in enumerate(bass['parameters']) if p['id']=='autoPlay');action({'action':'param','id':synth,'index':auto,'value':1});time.sleep(.2);assert get('/api/state')['buses'][1]['peak']>0
+   synth=action({'action':'add','module':'bass-ambient-pro-original','route':1})['id'];nodes=get('/api/state')['nodes'];bass=next(n for n in nodes if n['id']==synth);idx=next(i for i,p in enumerate(bass['parameters']) if p['id']=='bass');action({'action':'param','id':synth,'index':idx,'value':1});action({'action':'instrument-transport','id':synth,'command':'start'});time.sleep(.2);assert get('/api/state')['buses'][1]['peak']>0
    # Exercise the installed service entry without changing HOME or systemd.
    payload=tmp/'payload';(payload/'bin').mkdir(parents=True);(payload/'bin/jerzy-audio-core').symlink_to(build/'jerzy-audio-core')
    (payload/'web-ui').symlink_to(ROOT/'web-ui',target_is_directory=True)
@@ -149,7 +181,9 @@ def main():
     captured=json.loads(capture.communicate(timeout=10)[0]);assert capture.returncode==0 and captured['rms']>.001,captured
     print(json.dumps({'stress_seconds':a.stress_seconds,'graph_cycles':cycles,'captured_audio':captured,'status':core('STATUS')},indent=2))
    if a.browser:subprocess.run(['node',str(ROOT/'tests/ui.cjs'),url,str(ROOT/'docs/panel-mobile.png')],env=env,check=True)
-   print(json.dumps({'result':'PASS','checks':['JACK ports and unique names','real audio gain and bypass','native MIDI CC learn','module preset restore','live graph add/move/remove','HTTP panel','session save/load with Unicode','failed graph transaction','invalid parameter rejection','BassAmbient in independent instrument bus','service entry restores graph and saved buffer after engine restart','recover empty graph without Pi restart','live JACK buffer keeps instances','THRU preserves host routing','overload triggers automatic bypass'],'audio':{'baseline':baseline,'gain_minus_12dB':quiet,'bypass':bypass},'status':core('STATUS')},ensure_ascii=False,indent=2))
+   host.terminate();host.wait(timeout=10)
+   offline=get('/api/state');assert offline['engine_available'] is False and 'hardware' in offline
+   print(json.dumps({'result':'PASS','checks':['JACK ports and unique names','real audio gain and bypass','native MIDI CC learn','module preset restore','live graph add/move/remove','HTTP panel','session save/load with Unicode','failed graph transaction','invalid parameter rejection','BassAmbient in independent instrument bus','service entry restores graph and saved buffer after engine restart','recover empty graph without Pi restart','live JACK buffer keeps instances','THRU preserves host routing','overload triggers automatic bypass'],'audio':{'baseline':baseline,'gain_minus_12dB':quiet,'bypass':bypass},'status':offline},ensure_ascii=False,indent=2))
   except BaseException:
    for log in tmp.glob('*.log'):print(log.name,log.read_text()[-3000:],file=sys.stderr)
    raise

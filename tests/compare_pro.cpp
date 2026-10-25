@@ -2,7 +2,7 @@
 #include "../modules/bass-ambient-pro-original/vendor/Core.h"
 #include "reference_pro_parameters.h"
 #include "../modules/bass-ambient-pro-original/module.cpp"
-static std::vector<float> snapshot(const jerzy::Parameters& p){const JAParameter fields[]={
+template<class Params> static std::vector<float> snapshot(const Params& p){const JAParameter fields[]={
 #include "../modules/bass-ambient-pro-original/metadata.inc"
 };std::vector<float> out;for(const auto& f:fields)out.push_back(f.initial);out.push_back(float(p.bass));out.push_back(float(p.denominator));return out;}
 int main(int argc,char** argv){try{require(argc==2,"module path");double maximum=0,energy=0;uint64_t samples=0;auto started=std::chrono::steady_clock::now();

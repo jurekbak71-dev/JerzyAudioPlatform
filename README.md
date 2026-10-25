@@ -1,21 +1,25 @@
-# Jerzy Audio Platform 0.2.1
+# Jerzy Audio Platform 0.3.0
 
 Modułowy host JACK2 dla Raspberry Pi, pełne oryginalne DSP oraz polski panel WWW na porcie 8093. Dotychczasowe repozytoria i ich źródła pozostają bez zmian.
 
 ## Instalacja i aktualizacja
 
-**[Pobierz instalator Windows 0.2.1](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/download/v0.2.1-preview.1/JerzyAudioPlatform-v0.2.1-Windows-Installer.zip)** · [Wszystkie paczki](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/tag/v0.2.1-preview.1)
+**[Pobierz instalator Windows 0.3.0](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/download/v0.3.0-preview.1/JerzyAudioPlatform-v0.3.0-Windows-Installer.zip)** · [Wszystkie paczki](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/tag/v0.3.0-preview.1)
 
 1. Rozpakuj cały ZIP i kliknij `START-INSTALACJA.cmd`.
 2. Podaj aktualne IP Pi i hasło. Po udanym stagingu wpisz `TAK`, aby aktywować aktualizację.
 3. `WIFI-DOMOWE.cmd` przełącza Pi do domowego Wi-Fi z potwierdzeniem i próbą powrotu po pięciu minutach. Nie kasuje hotspotu.
 4. `INSTALUJ-MODUL.cmd` instaluje wybrane pojedyncze paczki z katalogu SHA256. W panelu: **ŁAŃCUCH → tor → Dodaj moduł**.
 
-[Instrukcja modułów i Wi-Fi](docs/MODULY_I_WIFI_PL.html). Pi nie potrzebuje internetu podczas instalacji; JACK i systemowe biblioteki muszą być wcześniej dostępne. Aktywacja zachowuje punkt przywracania poprzedniej wersji i ustawienia użytkownika.
+[Instrukcja modułów i Wi-Fi](docs/MODULY_I_WIFI_PL.html). JACK i systemowe biblioteki muszą być wcześniej dostępne. Instalacja brakującego BlueZ wymaga Internetu na Pi. Aktywacja zachowuje punkt przywracania poprzedniej wersji i ustawienia użytkownika.
 
 ## Naprawy po testach Pi
 
-[Instrukcja aktualizacji i zakres napraw 0.2.1](docs/NAPRAWY_0.2.1_PL.md). Zmiana bufora zachowuje żywy graf. Panel ma przyciski odzyskiwania audio, ochronę przeciążenia, czytelny CAB/IR i nowe sekcje studyjne. Głośność instrumentów jest na górze, MX pokazuje tylko parametry wybranego algorytmu.
+[Instrukcja aktualizacji i zakres napraw 0.3.0](docs/NAPRAWY_0.3.0_PL.md). SYSTEM stosuje profil przez kontrolowany restart JACK, odtwarza sesję i routing, a przy błędzie przywraca ustawienia. Panel ma przyciski odzyskiwania audio, ochronę przeciążenia, czytelny CAB/IR i nowe sekcje studyjne. Głośność instrumentów jest na górze, MX pokazuje tylko parametry wybranego algorytmu.
+
+## Bluetooth i uruchamianie PRO
+
+Bass Ambient: **Start JAM** uruchamia generator. **BLUETOOTH / MIDI** obsługuje standard BLE MIDI, cztery przypisania CC/PC i połączenie z Hotspotem osobistym iPhone przez PAN. iPad bez Hotspotu korzysta z Wi-Fi. Testy chmurowe nie potwierdzają połączenia radiowego Hotone ani iPhone.
 
 ## Oryginalne moduły
 

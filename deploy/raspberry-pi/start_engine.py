@@ -38,7 +38,14 @@ def main():
    try:
     jack.lib.jack_set_buffer_size.argtypes=[ctypes.c_void_p,ctypes.c_uint]
     jack.lib.jack_set_buffer_size.restype=ctypes.c_int
-    if jack.lib.jack_set_buffer_size(jack.client,desired):raise RuntimeError('Nie przywrócono zapisanego bufora JACK')
+    jack.lib.jack_get_buffer_size.argtypes=[ctypes.c_void_p];jack.lib.jack_get_buffer_size.restype=ctypes.c_uint
+    if jack.lib.jack_get_buffer_size(jack.client)!=desired:
+     sys.path.insert(0,str(ROOT/'deploy/connectivity'))
+     try:
+      from client import status as hardware_status
+      managed=hardware_status().get('available',False)
+     except ImportError:managed=False
+     if not managed and jack.lib.jack_set_buffer_size(jack.client,desired):raise RuntimeError('Nie przywrócono zapisanego bufora JACK')
    finally:jack.close()
  path=BASE/'core.sock'
  if path.exists():

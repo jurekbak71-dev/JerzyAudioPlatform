@@ -1,3 +1,7 @@
+# 0.3.0-preview.1
+
+Jawny transport JAM dla PRO; dokładne optymalizacje DSP; rozdzielenie ochrony CPU i ręcznego bypassu. Transakcyjna konfiguracja JACK i dostępny panel przy niedziałającym silniku. Usługa BlueZ, BLE MIDI → JACK, cztery mapowania CC/PC i klient PAN dla Hotspotu iPhone. Szczegóły i ograniczenia: docs/NAPRAWY_0.3.0_PL.md.
+
 ## 0.2.1 — naprawy po odsłuchu na Pi
 
 Żywa zmiana bufora, odzyskiwanie audio z panelu, ochrona przed przeciążeniem modułu, poprawiony wybór modeli Muff, widoczny CAB/IR z dodatkowymi kontrolkami, PRO z modalnym DSP i uporządkowany studyjny GUI. Oficjalne starsze moduły są aktualizowane po zatrzymaniu hosta, z kopią do rollbacku. Szczegóły i zakres: docs/NAPRAWY_0.2.1_PL.md.

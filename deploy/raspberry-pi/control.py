@@ -8,6 +8,7 @@ from jack_graph import Jack
 BASE=Path.home()/'.local/share/jerzy-audio-platform'
 UNIT_DIR=Path.home()/'.config/systemd/user'
 UNITS=['jerzy-audio-platform-core.service','jerzy-audio-platform-web.service']
+MIDI_UNIT='jerzy-audio-platform-midi.service'
 # Audited deployments; stop only previously active units during activation.
 OLD=[base+suffix+'.service' for base in ['jerzy-multifx','jerzy-multifx2','jerzy-multifx3','jerzy-multifx4'] for suffix in ['', '-panel','-routing','-midi']]
 def manage(record,action):
@@ -50,13 +51,18 @@ def units(release):
  commands=['/usr/bin/python3 '+quote(release/'deploy/raspberry-pi/start_engine.py'),'/usr/bin/python3 '+quote(release/'web-ui/server.py')+' --host 0.0.0.0 --port 8093 --socket '+quote(BASE/'core.sock')+' --modules '+quote(BASE/'modules')+' --data '+quote(BASE)+' --audio-helper '+quote(release/'deploy/raspberry-pi/control.py')]
  for index,name in enumerate(UNITS):
   path=directory/name
-  path.write_text('[Unit]\nDescription=Jerzy Audio Platform\n'+('After='+UNITS[0]+'\nWants='+UNITS[0]+'\n' if index else '')+'\n[Service]\nType=simple\nExecStart='+commands[index]+'\nRestart=always\nRestartSec=3\nTimeoutStopSec=3\nKillMode=control-group\n\n[Install]\nWantedBy=default.target\n')
+  path.write_text('[Unit]\nDescription=Jerzy Audio Platform\n'+('After='+UNITS[0]+'\nWants='+UNITS[0]+' '+MIDI_UNIT+'\n' if index else '')+'\n[Service]\nType=simple\nExecStart='+commands[index]+'\nRestart=always\nRestartSec=3\nTimeoutStopSec=3\nKillMode=control-group\n\n[Install]\nWantedBy=default.target\n')
+ midi=UNIT_DIR/MIDI_UNIT
+ midi.write_text('[Unit]\nDescription=Jerzy Bluetooth MIDI relay\n\n[Service]\nExecStart=/usr/bin/python3 '+quote(release/'deploy/connectivity/midi_relay.py')+'\nRestart=on-failure\nRestartSec=2\nTimeoutStopSec=3\nKillMode=control-group\n\n[Install]\nWantedBy=default.target\n')
+ rollback_unit=UNIT_DIR/'jerzy-audio-platform-rollback.service'
+ rollback_unit.write_text('[Service]\nType=oneshot\nExecStart=/usr/bin/python3 '+quote(release/'deploy/raspberry-pi/control.py')+' restore-pending\nExecStartPost=/usr/bin/systemctl --user start '+UNITS[0]+'\n')
  systemctl('daemon-reload')
 def rollback():
  state=json.loads((BASE/'rollback.json').read_text())
+ systemctl('stop',MIDI_UNIT,check=False)
  for unit in reversed(UNITS):systemctl('stop',unit,check=False)
  stale_socket()
- for unit in UNITS:
+ for unit in UNITS+[MIDI_UNIT]:
   target=UNIT_DIR/unit
   if 'unit_backups' in state:
    backup=state['unit_backups'].get(unit)
@@ -130,9 +136,11 @@ def activate():
   rollback()
  release=Path((BASE/'staged').read_text().strip()).resolve()
  if not release.is_relative_to(BASE/'releases') or not (release/'bin/jerzy-audio-core').is_file():raise RuntimeError('Nieprawidłowa paczka staging')
+ installer=release/'deploy/raspberry-pi/install_hardware.py'
+ if installer.exists():subprocess.run(['sudo','-n','/usr/bin/python3',str(installer),'--release',str(release),'--uid',str(os.getuid())],check=True)
  # Inspect both system and user scopes before changing any service.
  previous=[]
- for unit in OLD+UNITS:
+ for unit in OLD+UNITS+[MIDI_UNIT]:
   for scope,command in [('system',['systemctl']),('user',['systemctl','--user'])]:
    if subprocess.run(command+['is-active','--quiet',unit],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode==0:previous.append({'scope':scope,'unit':unit})
  if any(r['scope']=='system' for r in previous):
@@ -151,7 +159,7 @@ def activate():
   if (BASE/'rollback.json').exists():shutil.copy2(BASE/'rollback.json',history/'earlier-rollback.json')
   state['module_backups']=module_upgrade_plan(release,history)
   state['unit_backups']={}
-  for unit in UNITS:
+  for unit in UNITS+[MIDI_UNIT]:
    old=UNIT_DIR/unit
    if old.exists():
     backup=history/unit;shutil.copy2(old,backup);state['unit_backups'][unit]=str(backup)
@@ -164,7 +172,7 @@ def activate():
    for record in reversed(previous):manage(record,'stop')
    stale_socket()
    upgrade_modules(release,state['module_backups'])
-   systemctl('start',UNITS[0]);systemctl('start',UNITS[1]);status=ready();client=status['client']
+   systemctl('start',UNITS[0]);systemctl('start',UNITS[1]);status=ready();systemctl('start',MIDI_UNIT);client=status['client']
    for c in range(2):
     if physical_in:jack.connect(physical_in[min(c,len(physical_in)-1)],client+':wejscie_'+str(c+1))
     jack.connect(client+':wyjscie_'+str(c+1),physical_out[c])
@@ -224,6 +232,67 @@ def thru(enabled):
    atomic_json(file,{'disabled':True,'connections':direct or previous.get('connections',[])})
    print(json.dumps({'ok':True,'message':('Wyłączono THRU JACK.' if direct else 'Brak bezpośredniego THRU w JACK. Jeśli nadal słychać suchą gitarę, sprawdź monitoring w HeadRush.')}))
  finally:jack.close()
+def audio_config(rate,size,periods):
+ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'connectivity'));from client import call
+ if rate not in (44100,48000) or size not in (64,128,256,512,1024) or periods not in (2,3):raise ValueError('Nieobsługiwany profil audio')
+ file=BASE/'audio-settings.json';before=json.loads(file.read_text()) if file.exists() else None;transaction=None;connections=[]
+ try:
+  jack=Jack()
+  try:connections=jack.connections()
+  finally:jack.close()
+ except RuntimeError:pass
+ try:
+  systemctl('stop',UNITS[0])
+  transaction=call('audio-apply',rate=rate,buffer=size,periods=periods)['transaction']
+  atomic_json(BASE/'audio-operation-backup.json',{'transaction':transaction,'phase':'pending','before':before})
+  atomic_json(file,{'rate':rate,'buffer':size,'periods':periods})
+  stale_socket();systemctl('start',UNITS[0]);wait_engine()
+  status=core('STATUS')
+  if status['buffer']!=size or status['sample_rate']!=rate:raise RuntimeError('Silnik nie potwierdził profilu')
+  jack=Jack()
+  try:jack.restore(connections)
+  finally:jack.close()
+  call('audio-commit',transaction=transaction)
+  atomic_json(BASE/'audio-operation-backup.json',{'transaction':transaction,'phase':'committed','before':before})
+ except BaseException as error:
+  systemctl('stop',UNITS[0],check=False)
+  if before is None:file.unlink(missing_ok=True)
+  else:atomic_json(file,before)
+  try:
+   if transaction:call('audio-rollback',transaction=transaction)
+   stale_socket();systemctl('start',UNITS[0]);wait_engine()
+   jack=Jack()
+   try:jack.restore(connections)
+   finally:jack.close()
+   if transaction:atomic_json(BASE/'audio-operation-backup.json',{'transaction':transaction,'phase':'rolled-back','before':before})
+  except Exception as rollback_error:raise RuntimeError(str(error)+'; przywracanie audio: '+str(rollback_error)) from error
+  raise
+
+def restore_pending_audio():
+ file=BASE/'audio-operation-backup.json'
+ if not file.exists():return
+ record=json.loads(file.read_text())
+ if record.get('phase')!='pending':return
+ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'connectivity'));from client import call
+ status=call('status').get('audio',{}).get('last_transaction',{})
+ if status.get('id')!=record['transaction'] or status.get('phase')!='rolled-back':return
+ settings=BASE/'audio-settings.json'
+ if record.get('before') is None:settings.unlink(missing_ok=True)
+ else:atomic_json(settings,record['before'])
+ record['phase']='rolled-back';atomic_json(file,record)
+
+def wait_engine():
+ end=time.monotonic()+25
+ while time.monotonic()<end:
+  try:
+   status=core('STATUS');file=BASE/'session-recovery.json';recovery=json.loads(file.read_text()) if file.exists() else {}
+   if status['blocks']>2 and not recovery.get('pending'):
+    if recovery.get('error'):raise RuntimeError(recovery['error'])
+    return status
+  except (OSError,ValueError):pass
+  time.sleep(.15)
+ raise RuntimeError('Silnik audio nie potwierdził gotowości')
+
 def boot_command(record,action):
  prefix=['sudo','-n','systemctl'] if record['scope']=='system' else ['systemctl','--user']
  command=prefix+[action]
@@ -239,11 +308,11 @@ def restore_autostart():
 def autostart():
  status=ready()
  active=BASE/'active-release.json'
- if not active.exists() or Path(json.loads(active.read_text())['path']).resolve()!=Path(__file__).resolve().parents[2] or not status.get('version','').startswith('0.2.'):
-  raise RuntimeError('Najpierw aktywuj i sprawdź bieżącą wersję 0.2.0. Nie zmieniono autostartu.')
+ if not active.exists() or Path(json.loads(active.read_text())['path']).resolve()!=Path(__file__).resolve().parents[2] or not status.get('version','').startswith(('0.2.','0.3.')):
+  raise RuntimeError('Najpierw aktywuj i sprawdź bieżącą wersję 0.3.0. Nie zmieniono autostartu.')
  subprocess.run(['sudo','-n','true'],check=True)
  records=[]
- for scope,units0 in [('system',OLD+['jerzy-jack.service']),('user',OLD+UNITS)]:
+ for scope,units0 in [('system',OLD+['jerzy-jack.service']),('user',OLD+UNITS+[MIDI_UNIT])]:
   for unit in units0:
    prefix=['systemctl'] if scope=='system' else ['systemctl','--user']
    result=subprocess.run(prefix+['is-enabled',unit],capture_output=True,text=True)
@@ -253,7 +322,7 @@ def autostart():
  try:
   for record in records:
    if record['unit'] in OLD and record['enabled'].startswith('enabled'):boot_command(record,'disable')
-  for unit in UNITS:boot_command({'scope':'user','unit':unit},'enable')
+  for unit in UNITS+[MIDI_UNIT]:boot_command({'scope':'user','unit':unit},'enable')
   boot_command({'scope':'system','unit':'jerzy-jack.service'},'enable')
   subprocess.run(['sudo','-n','loginctl','enable-linger',str(os.getuid())],check=True)
  except BaseException:
@@ -263,12 +332,17 @@ def autostart():
   raise
  print('Autostart platformy i istniejącego JACK włączony. Sieć i parametry audio bez zmian. Poprzednie ustawienia startu zapisane.')
 def main():
- p=argparse.ArgumentParser();p.add_argument('action',choices=['activate','rollback','diagnostics','buffer','autostart','autostart-off','restart','recover','thru-on','thru-off']);p.add_argument('size',type=int,nargs='?');args=p.parse_args()
+ p=argparse.ArgumentParser();p.add_argument('action',choices=['activate','rollback','diagnostics','buffer','autostart','autostart-off','restart','recover','thru-on','thru-off','audio','restore-pending','repair']);p.add_argument('size',type=int,nargs='?');p.add_argument('--rate',type=int);p.add_argument('--buffer',type=int);p.add_argument('--periods',type=int);args=p.parse_args()
  try:
   if args.action=='activate':activate()
   elif args.action=='rollback':rollback()
   elif args.action in ('thru-on','thru-off'):thru(args.action=='thru-on')
   elif args.action in ('restart','recover'):restart_audio(args.action=='recover')
+  elif args.action=='repair':
+   sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'connectivity'));from client import call
+   systemctl('stop',UNITS[0]);call('jack-restart');stale_socket();systemctl('start',UNITS[0]);wait_engine()
+  elif args.action=='restore-pending':restore_pending_audio()
+  elif args.action=='audio':audio_config(args.rate,args.buffer,args.periods)
   elif args.action=='buffer':buffer_change(args.size)
   elif args.action=='autostart':autostart()
   elif args.action=='autostart-off':restore_autostart()

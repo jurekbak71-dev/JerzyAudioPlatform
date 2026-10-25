@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Attach only completed, current-build reference test results to module packages."""
-import argparse,hashlib,json,platform,re
+import argparse,hashlib,json,platform,re,subprocess,sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 def main():
+ subprocess.run([sys.executable,str(ROOT/"tools/optimize_pro.py"),"--check"],check=True)
  p=argparse.ArgumentParser();p.add_argument('--build',type=Path,required=True);a=p.parse_args()
  log=(a.build/'Testing/Temporary/LastTest.log').read_text();records={}
  for line in log.splitlines():

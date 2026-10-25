@@ -23,6 +23,7 @@
 #include <string>
 #include <thread>
 #include <pthread.h>
+#include <time.h>
 #include <vector>
 #ifdef __SSE__
 #include <xmmintrin.h>
@@ -32,10 +33,11 @@ constexpr uint32_t MAX_FRAMES=8192;
 static_assert(std::atomic<float>::is_always_lock_free && std::atomic<uint64_t>::is_always_lock_free && std::atomic<void*>::is_always_lock_free);
 std::atomic<bool> running{true};
 void signalHandler(int){running.store(false);}
+uint64_t cpuTime(){timespec t{};clock_gettime(CLOCK_THREAD_CPUTIME_ID,&t);return uint64_t(t.tv_sec)*1000000000u+uint64_t(t.tv_nsec);}
 std::string json(const std::string& s){std::ostringstream o;o<<'"';for(unsigned char c:s){if(c=='"'||c=='\\')o<<'\\'<<c;else if(c<32)o<<"\\u"<<std::hex<<std::setw(4)<<std::setfill('0')<<int(c)<<std::dec;else o<<c;}o<<'"';return o.str();}
 struct Node {
  void* lib=nullptr;const JAModule* api=nullptr;void* instance=nullptr;unsigned id;int route;std::string path,asset;
- std::array<std::atomic<float>,JA_MAX_PARAMETERS> params{};std::array<std::atomic<int>,JA_MAX_PARAMETERS> mapping{};std::atomic<bool> bypass{false};std::atomic<unsigned> fault{0};std::atomic<float> cost{0};unsigned overruns=0;float mix=0;
+ std::array<std::atomic<float>,JA_MAX_PARAMETERS> params{};std::array<std::atomic<int>,JA_MAX_PARAMETERS> mapping{};std::atomic<bool> bypass{false},suspended{false},resetLoad{false};std::atomic<unsigned> fault{0};std::atomic<float> cost{0},wallCost{0};double average=0;unsigned overruns=0;std::atomic<int> bypassMapping{-1},bypassMode{0};bool pressed=false;float mix=0;
  Node(unsigned i,int r,std::string p,std::string a,double sr):id(i),route(r),path(std::move(p)),asset(std::move(a)){
   for(auto& value:mapping)value.store(-1);
   lib=dlopen(path.c_str(),RTLD_NOW|RTLD_LOCAL);if(!lib)throw std::runtime_error("Nie można otworzyć biblioteki modułu");
@@ -72,7 +74,7 @@ struct Engine {
 #ifdef __aarch64__
   uint64_t fpcr;asm volatile("mrs %0, fpcr":"=r"(fpcr));fpcr|=(1u<<24);asm volatile("msr fpcr, %0"::"r"(fpcr));
 #endif
-  const auto callbackStarted=std::chrono::steady_clock::now();auto& e=*static_cast<Engine*>(ptr);e.busy.store(true);
+  const auto callbackCPU=cpuTime();auto& e=*static_cast<Engine*>(ptr);e.busy.store(true);
   if(e.blocks.load()==0){int policy=0;sched_param param{};pthread_getschedparam(pthread_self(),&policy,&param);e.rtPolicy.store(policy);e.rtPriority.store(param.sched_priority);}
   Graph* g=e.graph.load();
   float* out[]{static_cast<float*>(jack_port_get_buffer(e.output[0],frames)),static_cast<float*>(jack_port_get_buffer(e.output[1],frames))};
@@ -88,37 +90,48 @@ struct Engine {
    auto& v=events[count++];v.frame=m.time;v.size=uint32_t(m.size);std::copy_n(m.buffer,m.size,v.bytes);
   }
   for(unsigned i=0;i<count;++i)if(events[i].size==3&&(events[i].bytes[0]&240)==176)e.lastCC.store((events[i].bytes[0]&15)*128+events[i].bytes[1]);
-  const double tempo=e.bpm.load(std::memory_order_relaxed);
+  const double tempo=e.bpm.load(std::memory_order_relaxed);const auto learnNode=e.learnNode.load(std::memory_order_relaxed),learnParameter=e.learnParameter.load(std::memory_order_relaxed);
   for(const auto& owner:g->nodes){Node& node=*owner;auto& a=e.audio[node.route];
-   const bool bypass=node.bypass.load(std::memory_order_relaxed);if(bypass&&node.mix==0)continue;
+   if(node.resetLoad.exchange(false)){node.average=0;node.overruns=0;node.pressed=false;}
+   const int bypassMapping=node.bypassMapping.load(std::memory_order_relaxed);
+   if(bypassMapping>=0)for(unsigned m=0;m<count;++m){auto& event=events[m];if(event.size<2)continue;const int type=event.bytes[0]&240;const int key=(event.bytes[0]&15)*128+event.bytes[1]+(type==192?2048:0);if(key!=bypassMapping||(type!=192&&(type!=176||event.size!=3)))continue;
+    const int mode=node.bypassMode.load(std::memory_order_relaxed);const bool pressed=type==192||event.bytes[2]>0;
+    if(mode==1&&type==176)node.bypass.store(event.bytes[2]<64);else if(pressed&&(type==192||!node.pressed))node.bypass.store(!node.bypass.load());else{node.pressed=pressed;continue;}
+    node.pressed=pressed;node.suspended.store(false);node.fault.store(0);node.average=0;node.overruns=0;
+   }
+   const bool bypass=node.bypass.load(std::memory_order_relaxed)||node.suspended.load(std::memory_order_relaxed);if(bypass&&node.mix==0)continue;
    std::array<float,JA_MAX_PARAMETERS> values{};for(unsigned p=0;p<node.api->parameter_count;++p){
-    if(e.learnNode.load()==node.id&&e.learnParameter.load()==p){for(unsigned m=0;m<count;++m)if(events[m].size==3&&(events[m].bytes[0]&240)==176){node.mapping[p].store((events[m].bytes[0]&15)*128+events[m].bytes[1]);e.learnNode.store(0);break;}}
-    const int mapping=node.mapping[p].load();
+    if(count&&learnNode==node.id&&learnParameter==p){for(unsigned m=0;m<count;++m)if(events[m].size==3&&(events[m].bytes[0]&240)==176){node.mapping[p].store((events[m].bytes[0]&15)*128+events[m].bytes[1]);e.learnNode.store(0);break;}}
+    const int mapping=count?node.mapping[p].load(std::memory_order_relaxed):-1;
     if(mapping>=0)for(unsigned m=0;m<count;++m)if(events[m].size==3&&(events[m].bytes[0]&240)==176&&mapping==(events[m].bytes[0]&15)*128+events[m].bytes[1]){
      const auto& metadata=node.api->parameters[p];float v=metadata.minimum+(metadata.maximum-metadata.minimum)*events[m].bytes[2]/127.f;if(metadata.integer)v=std::round(v);node.params[p].store(v);
     }
     values[p]=node.params[p].load(std::memory_order_relaxed);
    }
    JAProcess b{sizeof(JAProcess),frames,e.sr,tempo,e.beat,1,{a[0].data(),a[1].data()},{e.wet[0].data(),e.wet[1].data()},values.data(),events.data(),count};
-   auto started=std::chrono::steady_clock::now();
+   auto started=std::chrono::steady_clock::now();const auto cpuStarted=cpuTime();
    node.api->process(node.instance,&b);
    const double budget=double(frames)/e.sr;const double elapsed=std::chrono::duration<double>(std::chrono::steady_clock::now()-started).count();
-   node.cost.store(float(elapsed/budget*100),std::memory_order_relaxed);
-   node.overruns=elapsed>budget*.85?node.overruns+1:0;
-   if(node.overruns>=3||elapsed>budget*4){node.fault.store(1);node.bypass.store(true);node.mix=0;continue;}
+   const double cpu=double(cpuTime()-cpuStarted)*1e-9;
+   node.cost.store(float(cpu/budget*100),std::memory_order_relaxed);node.wallCost.store(float(elapsed/budget*100),std::memory_order_relaxed);
+   const double alpha=1-std::exp(-budget/.05);node.average+=(cpu/budget-node.average)*alpha;
+   node.overruns=node.average>.95?node.overruns+1:0;
+   if(node.overruns>=6||cpu>budget*8){node.fault.store(1);node.suspended.store(true);node.mix=0;continue;}
    for(unsigned i=0;i<frames;++i){node.mix=std::clamp(node.mix+(bypass?-1.f:1.f)/float(e.sr*.01),0.f,1.f);
-    for(int c=0;c<2;++c){float v=e.wet[c][i];if(!std::isfinite(v)||std::abs(v)>32){v=0;node.fault.store(2);node.bypass.store(true);e.badSamples.fetch_add(1,std::memory_order_relaxed);}
+    for(int c=0;c<2;++c){float v=e.wet[c][i];if(!std::isfinite(v)||std::abs(v)>32){v=0;node.fault.store(2);node.suspended.store(true);e.badSamples.fetch_add(1,std::memory_order_relaxed);}
      if(node.api->instrument)a[c][i]+=v*node.mix;else a[c][i]+=(v-a[c][i])*node.mix;
     }
    }
   }
   const bool anySolo=e.bus[0].solo.load()||e.bus[1].solo.load();
   float maxPeak=0;double squares=0;float busPeak[2]{};double busSquares[2]{};
+  float busGain[2],panTarget[2],panFixed[2][2];bool fixedPan[2];
+  for(int r=0;r<2;++r){auto& b=e.bus[r];busGain[r]=(b.mute.load()||(anySolo&&!b.solo.load()))?0:b.gain.load();panTarget[r]=b.pan.load();if(std::abs(panTarget[r]-b.currentPan)<1e-5f)b.currentPan=panTarget[r];fixedPan[r]=b.currentPan==panTarget[r];const double angle=(b.currentPan+1)*.7853981633974483;panFixed[r][0]=float(std::cos(angle)*1.41421356237);panFixed[r][1]=float(std::sin(angle)*1.41421356237);}
+
   const float master=e.master.load(),ceiling=e.ceiling.load();const bool limit=e.limiter.load(),quiet=e.quiet.load();
   for(unsigned i=0;i<frames;++i){float mix[2]{};
-   for(int r=0;r<2;++r){auto& b=e.bus[r];const float gain=(b.mute.load()||(anySolo&&!b.solo.load()))?0:b.gain.load();
-    b.currentGain+=(gain-b.currentGain)*.002;b.currentPan+=(b.pan.load()-b.currentPan)*.002;
-    const double theta=(b.currentPan+1)*.7853981633974483;const float pan[]{float(std::cos(theta)*1.41421356237),float(std::sin(theta)*1.41421356237)};
+   for(int r=0;r<2;++r){auto& b=e.bus[r];b.currentGain+=(busGain[r]-b.currentGain)*.002;float pan[]{panFixed[r][0],panFixed[r][1]};
+    if(!fixedPan[r]){b.currentPan+=(panTarget[r]-b.currentPan)*.002;const double theta=(b.currentPan+1)*.7853981633974483;pan[0]=float(std::cos(theta)*1.41421356237);pan[1]=float(std::sin(theta)*1.41421356237);}
     for(int c=0;c<2;++c){float v=e.audio[r][c][i]*b.currentGain*pan[c];mix[c]+=v;busPeak[r]=std::max(busPeak[r],std::abs(v));busSquares[r]+=double(v)*v;}
    }
    e.fade=std::clamp(e.fade+(quiet?-1.f:1.f)/float(e.sr*.02),0.f,1.f);e.masterSmooth+=(master-e.masterSmooth)*.002;
@@ -128,10 +141,11 @@ struct Engine {
    }
   }
   for(int r=0;r<2;++r){e.bus[r].peak.store(busPeak[r]);e.bus[r].rms.store(float(std::sqrt(busSquares[r]/(2*frames))));}
-  const double callbackSeconds=std::chrono::duration<double>(std::chrono::steady_clock::now()-callbackStarted).count();
-  e.overloadedBlocks=callbackSeconds>double(frames)/e.sr*.95?e.overloadedBlocks+1:0;
-  if(e.overloadedBlocks>=6){Node* expensive=nullptr;for(const auto& owner:g->nodes)if(!owner->bypass.load()&&(!expensive||owner->cost.load()>expensive->cost.load()))expensive=owner.get();
-   if(expensive){expensive->fault.store(1);expensive->bypass.store(true);expensive->mix=0;e.protectionEvents.fetch_add(1);}e.overloadedBlocks=0;
+
+  const double callbackCPUSeconds=double(cpuTime()-callbackCPU)*1e-9;
+  e.overloadedBlocks=callbackCPUSeconds>double(frames)/e.sr*1.05?e.overloadedBlocks+1:0;
+  if(e.overloadedBlocks>=6){Node* expensive=nullptr;for(const auto& owner:g->nodes)if(!owner->bypass.load()&&!owner->suspended.load()&&(!expensive||owner->cost.load()>expensive->cost.load()))expensive=owner.get();
+   if(expensive){expensive->fault.store(1);expensive->suspended.store(true);expensive->mix=0;e.protectionEvents.fetch_add(1);}e.overloadedBlocks=0;
   }
   e.peak.store(maxPeak);e.rms.store(float(std::sqrt(squares/(2*frames))));e.beat+=frames*tempo/(60*e.sr);e.silent.store(e.fade==0);e.observed.store(g);e.blocks.fetch_add(1);e.busy.store(false);return 0;
  }
@@ -152,7 +166,7 @@ struct Engine {
   for(int r=0;r<2;++r){if(r)o<<',';auto& b=bus[r];o<<"{\"gain\":"<<b.gain<<",\"pan\":"<<b.pan<<",\"mute\":"<<(b.mute?"true":"false")<<",\"solo\":"<<(b.solo?"true":"false")<<",\"peak\":"<<b.peak<<",\"rms\":"<<b.rms<<'}';}o<<"]}";return o.str();
  }
  std::string list(bool staging=false){std::ostringstream o;o<<"{\"ok\":true,\"nodes\":[";bool first=true;for(auto& n:(staging&&pending?pending.get():graph.load())->nodes){if(!first)o<<',';first=false;
-  o<<"{\"id\":"<<n->id<<",\"module\":"<<json(n->api->id)<<",\"name\":"<<json(n->api->name)<<",\"path\":"<<json(n->path)<<",\"asset\":"<<json(n->asset)<<",\"route\":"<<n->route<<",\"instrument\":"<<(n->api->instrument?"true":"false")<<",\"bypass\":"<<(n->bypass?"true":"false")<<",\"fault\":"<<n->fault<<",\"cpu_percent\":"<<n->cost<<",\"latency\":"<<n->api->latency(n->instance)<<",\"parameters\":[";
+  o<<"{\"id\":"<<n->id<<",\"module\":"<<json(n->api->id)<<",\"name\":"<<json(n->api->name)<<",\"path\":"<<json(n->path)<<",\"asset\":"<<json(n->asset)<<",\"route\":"<<n->route<<",\"instrument\":"<<(n->api->instrument?"true":"false")<<",\"bypass\":"<<((n->bypass.load()||n->suspended.load())?"true":"false")<<",\"user_bypass\":"<<(n->bypass?"true":"false")<<",\"fault\":"<<n->fault<<",\"cpu_percent\":"<<n->cost<<",\"wall_percent\":"<<n->wallCost<<",\"latency\":"<<n->api->latency(n->instance)<<",\"parameters\":[";
   for(unsigned p=0;p<n->api->parameter_count;++p){if(p)o<<',';const auto& v=n->api->parameters[p];o<<"{\"id\":"<<json(v.id)<<",\"label\":"<<json(v.label)<<",\"unit\":"<<json(v.unit)<<",\"choices\":"<<json(v.choices)<<",\"min\":"<<v.minimum<<",\"max\":"<<v.maximum<<",\"default\":"<<v.initial<<",\"integer\":"<<v.integer<<",\"mapping\":"<<n->mapping[p]<<",\"value\":"<<n->params[p]<<'}';}o<<"]}";
   }o<<"]}";return o.str();}
  std::string command(const std::string& line){std::istringstream in(line);std::string cmd;in>>cmd;
@@ -168,7 +182,8 @@ struct Engine {
    if(cmd=="MOVE"){if(!(in>>index)||index>next->nodes.size())throw std::runtime_error("Niepoprawna pozycja");next->nodes.insert(next->nodes.begin()+index,node);}swap(std::move(next));}
   else if(cmd=="PARAM"){unsigned id,index;float v;if(!(in>>id>>index>>v)||!std::isfinite(v))throw std::runtime_error("Niepoprawny parametr");auto n=find(id);if(index>=n->api->parameter_count)throw std::runtime_error("Brak parametru");const auto& p=n->api->parameters[index];if(v<p.minimum||v>p.maximum||(p.integer&&v!=std::round(v)))throw std::runtime_error("Wartość poza zakresem");n->params[index].store(v);}
   else if(cmd=="LEARN"||cmd=="MAP"){unsigned id,p;int mapping=-1;if(!(in>>id>>p))throw std::runtime_error("Niepoprawne mapowanie MIDI");auto n=find(id);if(p>=n->api->parameter_count)throw std::runtime_error("Brak parametru MIDI");if(cmd=="LEARN"){learnParameter.store(p);learnNode.store(id);}else{if(!(in>>mapping)||mapping<-1||mapping>2047)throw std::runtime_error("Niepoprawny kanał lub CC");n->mapping[p].store(mapping);}}
-  else if(cmd=="BYPASS"){unsigned id;int v;if(!(in>>id>>v)||(v!=0&&v!=1))throw std::runtime_error("Niepoprawny bypass");auto n=find(id);n->bypass.store(v);if(!v){n->fault.store(0);}}
+  else if(cmd=="MAPBYPASS"){unsigned id;int mapping,mode;if(!(in>>id>>mapping>>mode)||mapping< -1||mapping>4095||mode<0||mode>1)throw std::runtime_error("Niepoprawne mapowanie przełącznika MIDI");auto n=find(id);n->bypassMapping.store(mapping);n->bypassMode.store(mode);n->resetLoad.store(true);}
+  else if(cmd=="BYPASS"){unsigned id;int v;if(!(in>>id>>v)||(v!=0&&v!=1))throw std::runtime_error("Niepoprawny bypass");auto n=find(id);n->bypass.store(v);n->suspended.store(false);n->fault.store(0);n->resetLoad.store(true);}
   else if(cmd=="MIX"){int r,m,s;float g,p;if(!(in>>r>>g>>p>>m>>s)||r<0||r>1||!std::isfinite(g)||!std::isfinite(p)||g<0||g>2||p<-1||p>1||(m!=0&&m!=1)||(s!=0&&s!=1))throw std::runtime_error("Niepoprawne ustawienia miksera");bus[r].gain.store(g);bus[r].pan.store(p);bus[r].mute.store(m);bus[r].solo.store(s);}
   else if(cmd=="MASTER"||cmd=="BPM"||cmd=="CEILING"){float v;if(!(in>>v)||!std::isfinite(v))throw std::runtime_error("Niepoprawna wartość");if(cmd=="MASTER"&&v>=0&&v<=2)master.store(v);else if(cmd=="BPM"&&v>=20&&v<=400)bpm.store(v);else if(cmd=="CEILING"&&v>=.1&&v<=1)ceiling.store(v);else throw std::runtime_error("Wartość poza zakresem");}
   else if(cmd=="LIMITER"){int v;if(!(in>>v)||(v!=0&&v!=1))throw std::runtime_error("Niepoprawny limiter");limiter.store(v);}

@@ -1,0 +1,1 @@
+Bluetooth broker includes dbus-next 0.2.3 (MIT), vendored under deploy/connectivity/vendor. License and verified wheel SHA256 are included there. No Python package installation is required on Pi for this dependency.

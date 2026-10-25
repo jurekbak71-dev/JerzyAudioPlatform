@@ -24,7 +24,7 @@ jobs:
       - name: Narzędzia zgodne z Bookworm
         run: |
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git g++ cmake ninja-build pkg-config libjack-jackd2-dev jackd2 python3 ca-certificates nodejs
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git g++ cmake ninja-build pkg-config libjack-jackd2-dev jackd2 python3 ca-certificates nodejs dbus-daemon
       - name: Kompilacja i testy DSP
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_SKIP_RPATH=ON
@@ -39,6 +39,8 @@ jobs:
           python3 tools/ci_run.py docs/INTEGRATION-TESTS.log python3 tests/integration.py --build build --stress-seconds 15
           python3 tools/ci_run.py docs/PACKAGE-TESTS.log python3 -m unittest discover -s tests -p 'test_*.py' -v
           node --check web-ui/app.js
+          node --check web-ui/hardware.js
+          python3 tools/optimize_pro.py --check
           sh -n deploy/raspberry-pi/install.sh
       - name: Budowanie rzeczywistych paczek
         run: python3 tools/ci_run.py docs/PACKAGE-BUILD.log python3 tools/package.py --build build --out dist --arch ${{ matrix.arch }}

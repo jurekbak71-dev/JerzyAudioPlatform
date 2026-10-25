@@ -6,10 +6,11 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'module-manager'))
 from manager import Library,atomic_json,ID
-class Application:
+from hardware import Hardware
+class Application(Hardware):
  def __init__(self,args):
   self.args=args;self.data=Path(args.data).resolve();self.data.mkdir(parents=True,exist_ok=True)
-  self.library=Library(args.modules);self.lock=threading.RLock();self.token=secrets.token_urlsafe(32)
+  self.library=Library(args.modules);self.lock=threading.RLock();self.token=secrets.token_urlsafe(32);self.init_hardware()
  def core(self,command):
   with socket.socket(socket.AF_UNIX) as s:
    s.settimeout(10);s.connect(self.args.socket);s.sendall((command+'\n').encode());data=bytearray()
@@ -21,7 +22,7 @@ class Application:
   if not result.get('ok'):raise ValueError(result.get('error','Błąd silnika'))
   return result
  def state(self):
-  status=self.core('STATUS');status['nodes']=self.core('LIST')['nodes'];status['library']=self.library.list()
+  status=self.core_state();status['hardware']=self.hardware_state();status['library']=self.library.list()
   metadata={x['id']:x for x in status['library']}
   for node in status['nodes']:
    choices=metadata.get(node['module'],{}).get('gui_normalized_choices',{})
@@ -69,25 +70,25 @@ class Application:
     for i,p in enumerate(node['parameters']):
      self.core(f'PARAM {id} {i} {float(p["value"])}')
      self.core(f'MAP {id} {i} {int(p.get("mapping",-1))}')
-    self.core(f'BYPASS {id} {int(node.get("bypass",False))}')
+    self.core(f'BYPASS {id} {int(node.get("user_bypass",node.get("bypass",False) if not node.get("fault") else False))}')
    self.core('COMMIT')
   except BaseException:
    self.core('ABORT');raise
   for i,b in enumerate(value['buses']):self.core(f'MIX {i} {float(b["gain"])} {float(b["pan"])} {int(b["mute"])} {int(b["solo"])}')
   for key,cmd in [('master','MASTER'),('bpm','BPM'),('ceiling','CEILING')]:self.core(f'{cmd} {float(value[key])}')
   self.core('LIMITER '+str(int(value['limiter'])))
+  self.sync_midi_bindings()
  def action(self,p):
   with self.lock:
+   if self.operation.get('pending') and p['action'] not in ('bluetooth','midi-binding','midi-learn'):raise ValueError('Trwa operacja audio; poczekaj na wynik w SYSTEMIE')
+   result=self.hardware_action(p)
+   if result is not None:return result
    if p['action'] not in ('restart-audio','recover-audio') and (self.data/'session-recovery.json').exists() and json.loads((self.data/'session-recovery.json').read_text()).get('pending'):raise ValueError('Trwa odtwarzanie sesji po starcie silnika. Poczekaj chwilę.')
    action=p['action']
    if action=='thru':
     if not self.args.audio_helper:raise ValueError('Sterowanie THRU dostępne po instalacji na Pi')
     result=subprocess.run([sys.executable,self.args.audio_helper,'thru-on' if p.get('value') else 'thru-off'],check=True,timeout=10,capture_output=True,text=True)
     return json.loads(result.stdout)
-   if action in ('restart-audio','recover-audio'):
-    if not self.args.audio_helper:raise ValueError('Restart dostępny po instalacji na Pi')
-    subprocess.run([sys.executable,self.args.audio_helper,'recover' if action=='recover-audio' else 'restart'],check=True,timeout=35)
-    return {'ok':True}
    if action=='add':return self.add(p['module'],int(p['route']),p.get('asset',''))
    if action in ('remove','bypass','move'):
     id=int(p['id']);cmd={'remove':'REMOVE','bypass':'BYPASS','move':'MOVE'}[action];tail='' if action=='remove' else ' '+str(int(p['value']));return self.core(f'{cmd} {id}{tail}')
@@ -168,8 +169,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
    if self.path=='/api/state':
     with self.server.app.lock:self.send(200,self.server.app.state())
    elif self.path=='/api/session':self.send(200,{'token':self.server.app.token})
-   elif self.path in ('/','/app.js','/style.css'):
-    file={'/':'index.html','/app.js':'app.js','/style.css':'style.css'}[self.path];kind={'/':'text/html; charset=utf-8','/app.js':'text/javascript; charset=utf-8','/style.css':'text/css; charset=utf-8'}[self.path];self.send(200,(ROOT/'web-ui'/file).read_bytes(),kind)
+   elif self.path in ('/','/app.js','/hardware.js','/style.css'):
+    file={'/':'index.html','/app.js':'app.js','/hardware.js':'hardware.js','/style.css':'style.css'}[self.path];kind={'/':'text/html; charset=utf-8','/app.js':'text/javascript; charset=utf-8','/hardware.js':'text/javascript; charset=utf-8','/style.css':'text/css; charset=utf-8'}[self.path];self.send(200,(ROOT/'web-ui'/file).read_bytes(),kind)
    else:self.send(404,{'error':'Nie znaleziono'})
   except (OSError,ValueError,KeyError) as e:self.send(503,{'error':str(e)})
  def do_POST(self):
@@ -185,9 +186,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
     result=app.action(p)
     if p['action'] in ('preset-save','preset-load') and (app.data/'session-recovery.json').exists():atomic_json(app.data/'session-recovery.json',{'error':None,'pending':False})
     state=app.state();state['schema']=1
-    if not state.get('session_restore_error'):atomic_json(app.data/'last-session.json',state)
+    if p['action'] in ('add','remove','move'):app.sync_midi_bindings()
+    if state.get('engine_available',True) and not state.get('hardware',{}).get('operation',{}).get('pending') and not state.get('session_restore_error'):atomic_json(app.data/'last-session.json',state)
    self.send(200,result)
-  except (OSError,ValueError,KeyError,IndexError,subprocess.SubprocessError,StopIteration,zipfile.BadZipFile) as e:self.send(400,{'error':str(e)})
+  except (OSError,ValueError,KeyError,IndexError,RuntimeError,subprocess.SubprocessError,StopIteration,zipfile.BadZipFile) as e:self.send(400,{'error':str(e)})
 def main():
  p=argparse.ArgumentParser();p.add_argument('--socket',default='/tmp/jerzy-audio-platform.sock');p.add_argument('--modules',default=str(ROOT/'modules'));p.add_argument('--data',default=str(Path.home()/'.local/share/jerzy-audio-platform'));p.add_argument('--host',default='127.0.0.1');p.add_argument('--port',type=int,default=8093);p.add_argument('--audio-helper');p.add_argument('--restore',action='store_true');args=p.parse_args()
  app=Application(args)

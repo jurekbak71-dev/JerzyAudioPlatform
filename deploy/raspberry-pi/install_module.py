@@ -7,7 +7,7 @@ def main():
  p=argparse.ArgumentParser();p.add_argument('package',type=Path);p.add_argument('sha256');a=p.parse_args()
  try:
   with urllib.request.urlopen('http://127.0.0.1:8093/api/state',timeout=5) as response:state=json.load(response)
-  if not state.get('version','').startswith('0.2.'):raise RuntimeError('Najpierw zaktualizuj i aktywuj system 0.2.0. Dane i presety zostaną zachowane.')
+  if not state.get('version','').startswith(('0.2.','0.3.')):raise RuntimeError('Najpierw zaktualizuj i aktywuj system 0.3.0. Dane i presety zostaną zachowane.')
   active=BASE/'active-release.json'
   if not active.exists():raise RuntimeError('Brak potwierdzonej aktywnej wersji systemu.')
   release=Path(json.loads(active.read_text())['path']).resolve()

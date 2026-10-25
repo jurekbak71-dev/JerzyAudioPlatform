@@ -27,7 +27,7 @@ def main():
  dirs=[d for d in sorted((ROOT/'modules').iterdir()) if (d/'manifest.json').is_file()]
  modules=[d for d in dirs if d.name.endswith('-original') or d.name in ('utility-gain-meter','cab-ir')]
  sums={};module_files={};catalog={}
- notes=a.out/'RELEASE-NOTES.md';shutil.copy2(ROOT/'docs/NAPRAWY_0.2.1_PL.md',notes);sums[notes.name]=digest(notes)
+ notes=a.out/'RELEASE-NOTES.md';shutil.copy2(ROOT/'docs/NAPRAWY_0.3.0_PL.md',notes);sums[notes.name]=digest(notes)
  for d in modules:
   m=json.loads((d/'manifest.json').read_text());name=f'{d.name}-{m["version"]}-linux-{a.arch}.jamod';path=a.out/name
   if d.name.endswith('-original') and not (a.build/'compatibility'/(d.name+'.json')).is_file():raise RuntimeError('Brak ukończonych testów zgodności: '+d.name)
@@ -41,7 +41,7 @@ def main():
   for binary in a.build.glob('compare-*'):
    if binary.is_file() and binary.suffix=='':shutil.copy2(binary,root/'tests'/binary.name)
   shutil.copy2(a.build/'module-health',root/'tests/module-health')
-  shutil.copy2(a.build/'jerzy-audio-core',root/'bin/jerzy-audio-core');shutil.copy2(a.build/'module-tests',root/'tests/module-tests')
+  shutil.copy2(a.build/'jerzy-audio-core',root/'bin/jerzy-audio-core');shutil.copy2(a.build/'jerzy-midi-bridge',root/'bin/jerzy-midi-bridge');shutil.copy2(a.build/'module-tests',root/'tests/module-tests')
   # Legacy algorithms are kept only as test fixtures, not offered as new FX.
   legacy=root/'tests/legacy-modules'
   for d in dirs:
@@ -53,7 +53,7 @@ def main():
    target=root/'modules'/d.name;target.mkdir(parents=True);m=json.loads((d/'manifest.json').read_text())
    with zipfile.ZipFile(a.out/f'{d.name}-{m["version"]}-linux-{a.arch}.jamod') as source:
     for name in source.namelist():(target/name).write_bytes(source.read(name))
-  for name in ['README.md','CHANGELOG.md','docs/INSTRUKCJA_PL.html','docs/MODULY_I_WIFI_PL.html','docs/ORYGINALNE_DSP_0.2.md','docs/NAPRAWY_0.2.1_PL.md','docs/AUDYT.md','docs/TESTY_SPRZETOWE.md','docs/OGRANICZENIA.md','docs/RAPORT_TESTOW.md']:
+  for name in ['README.md','CHANGELOG.md','docs/INSTRUKCJA_PL.html','docs/MODULY_I_WIFI_PL.html','docs/ORYGINALNE_DSP_0.2.md','docs/NAPRAWY_0.3.0_PL.md','docs/TESTY_0.3.0.md','docs/AUDYT.md','docs/TESTY_SPRZETOWE.md','docs/OGRANICZENIA.md','docs/RAPORT_TESTOW.md']:
    target=root/name;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(ROOT/name,target)
   try:commit=subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True,stderr=subprocess.DEVNULL).strip()
   except (subprocess.CalledProcessError,FileNotFoundError):commit=os.environ.get('GITHUB_SHA')
@@ -68,7 +68,7 @@ def main():
   sums[name]=digest(archive)
  if a.arch=='arm64':
   tool_files={f.name:f.read_bytes() for f in (ROOT/'deploy/windows').iterdir() if f.is_file()}
-  tool_files.update({'wifi_home.py':(ROOT/'deploy/network/wifi_home.py').read_bytes(),'recover_jack.sh':(ROOT/'deploy/raspberry-pi/recover_jack.sh').read_bytes(),'install_module.py':(ROOT/'deploy/raspberry-pi/install_module.py').read_bytes(),'MODULE-CATALOG.json':catalog_data,'MODULY_I_WIFI_PL.html':(ROOT/'docs/MODULY_I_WIFI_PL.html').read_bytes(),'LICENSE.txt':(ROOT/'LICENSE').read_bytes(),'NAPRAWY_0.2.1_PL.md':(ROOT/'docs/NAPRAWY_0.2.1_PL.md').read_bytes()})
+  tool_files.update({'wifi_home.py':(ROOT/'deploy/network/wifi_home.py').read_bytes(),'recover_jack.sh':(ROOT/'deploy/raspberry-pi/recover_jack.sh').read_bytes(),'install_module.py':(ROOT/'deploy/raspberry-pi/install_module.py').read_bytes(),'MODULE-CATALOG.json':catalog_data,'MODULY_I_WIFI_PL.html':(ROOT/'docs/MODULY_I_WIFI_PL.html').read_bytes(),'LICENSE.txt':(ROOT/'LICENSE').read_bytes(),'NAPRAWY_0.3.0_PL.md':(ROOT/'docs/NAPRAWY_0.3.0_PL.md').read_bytes()})
   full={**tool_files,archive.name:archive.read_bytes(),'SHA256.json':(json.dumps(sums,indent=2)+'\n').encode(),'INSTRUKCJA_PL.html':(ROOT/'docs/INSTRUKCJA_PL.html').read_bytes()}
   for name,data in module_files.items():full['moduly/'+name]=data
   name=f'JerzyAudioPlatform-v{VERSION}-Windows-Installer.zip';archive_zip(a.out/name,full);sums[name]=digest(a.out/name)

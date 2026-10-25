@@ -12,6 +12,9 @@ const fs=require('fs');
   await page.getByRole('button',{name:'PRESETY',exact:true}).click();await page.getByPlaceholder('Nazwa presetu').fill('Telefon żółć');await page.getByRole('button',{name:'Zapisz całą sesję',exact:true}).click();await page.getByRole('heading',{name:'Telefon żółć',exact:true}).waitFor();
   await page.getByRole('button',{name:'BIBLIOTEKA',exact:true}).click();await page.getByRole('heading',{name:'Biblioteka modułów'}).waitFor();
   await page.getByRole('button',{name:'SYSTEM',exact:true}).click();await page.locator('#diagnostics').filter({hasText:'JACK: działa'}).waitFor();
+  await page.getByRole('button',{name:'BLUETOOTH / MIDI',exact:true}).click();
+  await page.getByRole('heading',{name:'Bluetooth i MIDI',exact:true}).waitFor();
+  await page.getByRole('button',{name:'SYSTEM',exact:true}).click();
   await page.getByRole('button',{name:'ŁAŃCUCH',exact:true}).click();await page.getByRole('button',{name:'Instrumenty',exact:true}).click();
   const token=(await (await page.request.get(url+'/api/session')).json()).token;
   async function api(data){const r=await page.request.post(url+'/api/action',{headers:{'X-Jerzy-Token':token},data});if(!r.ok())throw Error(await r.text());return r.json();}
