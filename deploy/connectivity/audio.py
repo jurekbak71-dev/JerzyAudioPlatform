@@ -3,24 +3,60 @@ import json,os,re,shlex,subprocess,threading,time,uuid
 from pathlib import Path
 SERVICE='jerzy-jack.service'
 class Audio:
- def __init__(self,state,dropin=Path('/etc/systemd/system/jerzy-jack.service.d/90-jerzy-audio-platform.conf'),runner=None,proc=Path('/proc')):
-  self.state=Path(state);self.state.mkdir(parents=True,exist_ok=True);self.dropin=Path(dropin);self.proc=proc;self.run=runner or self.command;self.lock=threading.RLock()
+ def __init__(self,state,dropin=Path('/etc/systemd/system/jerzy-jack.service.d/90-jerzy-audio-platform.conf'),runner=None,proc=Path('/proc'),cgroup=Path('/sys/fs/cgroup')):
+  self.state=Path(state);self.state.mkdir(parents=True,exist_ok=True);self.dropin=Path(dropin);self.proc=proc;self.cgroup=cgroup;self.run=runner or self.command;self.lock=threading.RLock()
  @staticmethod
  def command(*args):
   value=subprocess.run(args,check=True,capture_output=True,text=True,timeout=30);return value.stdout.strip()
  def save(self,name,value):
   path=self.state/name;temp=path.with_suffix('.tmp');temp.write_text(json.dumps(value));temp.chmod(0o600);os.replace(temp,path)
+ @staticmethod
+ def trusted_jack(executable):
+  if executable.name not in ('jackd','jackdmp'):return False
+  # A root broker must never persist a user-writable executable as ExecStart.
+  try:return executable.is_file() and all(p.stat().st_uid==0 and not p.stat().st_mode&0o022 for p in (executable,*executable.parents))
+  except OSError:return False
+ def process_args(self,pid):
+  executable=(self.proc/str(pid)/'exe').resolve()
+  if not self.trusted_jack(executable):return None
+  args=[v.decode() for v in (self.proc/str(pid)/'cmdline').read_bytes().split(b'\0') if v]
+  if not args:return None
+  command=Path(args[0])
+  if command.is_absolute():
+   if command.resolve()!=executable:return None
+  elif command.name!=args[0] or command.name not in ('jackd','jackdmp'):return None
+  return [str(executable),*args[1:]]
  def argv(self):
   pid=int(self.run('systemctl','show',SERVICE,'--property=MainPID','--value'))
   if pid<=0:raise RuntimeError('JACK nie działa; najpierw użyj Uruchom JACK')
-  executable=(self.proc/str(pid)/'exe').resolve()
-  if str(executable) not in ('/usr/bin/jackd','/usr/bin/jackdmp'):raise RuntimeError('Nieobsługiwany program w usłudze JACK; nie zmieniono konfiguracji')
-  args=(self.proc/str(pid)/'cmdline').read_bytes().split(b'\0');args=[v.decode() for v in args if v]
-  if not args or args[0] not in ('/usr/bin/jackd','/usr/bin/jackdmp') or not any(args[i:i+2]==['-d','alsa'] for i in range(len(args)-1)):raise RuntimeError('Wymagany standardowy sterownik JACK ALSA')
+  args=self.process_args(pid)
+  if args is None:
+   # Type=simple services may keep a shell wrapper as MainPID. Select only
+   # an unambiguous JACK process from this unit, never another running JACK.
+   group=self.run('systemctl','show',SERVICE,'--property=ControlGroup','--value')
+   path=self.cgroup/group.lstrip('/')
+   if not group.startswith('/') or group=='/' or '..' in Path(group).parts or not path.resolve().is_relative_to(self.cgroup.resolve()):raise RuntimeError('Nie można rozpoznać grupy procesów usługi JACK')
+   candidates=[]
+   for child in set((path/'cgroup.procs').read_text().split()):
+    if not child.isdecimal():continue
+    try:found=self.process_args(int(child))
+    except (FileNotFoundError,ProcessLookupError):continue
+    if found is not None:candidates.append(found)
+   if len(candidates)!=1:raise RuntimeError('Usługa JACK musi zawierać jeden rozpoznany proces jackd/jackdmp; nie zmieniono konfiguracji')
+   args=candidates[0]
+  self.backend_start(args)
   return args
  @staticmethod
+ def backend_start(args):
+  for i,token in enumerate(args[1:],1):
+   if token in ('-d','--driver'):
+    if i+1<len(args) and args[i+1]=='alsa':return i+2
+    break
+   if token in ('-dalsa','--driver=alsa'):return i+1
+  raise RuntimeError('Wymagany standardowy sterownik JACK ALSA')
+ @staticmethod
  def settings(args):
-  start=next(i+2 for i in range(len(args)-1) if args[i:i+2]==['-d','alsa']);values={'rate':48000,'buffer':1024,'periods':2}
+  start=Audio.backend_start(args);values={'rate':48000,'buffer':1024,'periods':2}
   for short,long,key in [('-r','--rate','rate'),('-p','--period','buffer'),('-n','--nperiods','periods')]:
    for i in range(start,len(args)):
     if args[i] in (short,long) and i+1<len(args):values[key]=int(args[i+1])
@@ -30,7 +66,7 @@ class Audio:
  @staticmethod
  def configured(args,rate,buffer,periods):
   if rate not in (44100,48000) or buffer not in (64,128,256,512,1024) or periods not in (2,3):raise ValueError('Nieobsługiwany profil audio')
-  start=next(i+2 for i in range(len(args)-1) if args[i:i+2]==['-d','alsa']);out=args[:start];i=start
+  start=Audio.backend_start(args);out=args[:start];i=start
   options=(('-r','--rate'),('-p','--period'),('-n','--nperiods'))
   while i<len(args):
    token=args[i];found=False
