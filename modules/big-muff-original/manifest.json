@@ -1,7 +1,7 @@
 {
   "id": "big-muff-original",
   "name": "Jerzy Big Muff — oryginalny DSP",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "abi": 1,
   "library": "big-muff-original.so",
   "instrument": false,

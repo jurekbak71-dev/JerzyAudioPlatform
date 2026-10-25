@@ -5,6 +5,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 def main():
  subprocess.run([sys.executable,str(ROOT/"tools/optimize_pro.py"),"--check"],check=True)
+ subprocess.run([sys.executable,str(ROOT/"tools/optimize_muff.py"),"--check"],check=True)
  p=argparse.ArgumentParser();p.add_argument('--build',type=Path,required=True);a=p.parse_args()
  log=(a.build/'Testing/Temporary/LastTest.log').read_text();records={}
  for line in log.splitlines():

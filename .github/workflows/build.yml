@@ -41,6 +41,7 @@ jobs:
           node --check web-ui/app.js
           node --check web-ui/hardware.js
           python3 tools/optimize_pro.py --check
+          python3 tools/optimize_muff.py --check
           sh -n deploy/raspberry-pi/install.sh
       - name: Budowanie rzeczywistych paczek
         run: python3 tools/ci_run.py docs/PACKAGE-BUILD.log python3 tools/package.py --build build --out dist --arch ${{ matrix.arch }}
