@@ -39,4 +39,4 @@ static void process(void* ptr,const JAProcess* b){auto& s=*static_cast<State*>(p
 static uint32_t latency(void*){return 0;}
 extern "C" const JAModule* ja_module(){static const jerzy_opt::Parameters p;static const JAParameter metadata[]={
 #include "metadata.inc"
-};static const JAModule m{sizeof(JAModule),JA_ABI,"bass-ambient-pro-original","Jerzy Bass Ambient PRO — modalny DSP","0.3.0",1,uint32_t(sizeof(metadata)/sizeof(metadata[0])),metadata,create,destroy,process,latency};return &m;}
+};static const JAModule m{sizeof(JAModule),JA_ABI,"bass-ambient-pro-original","Jerzy Bass Ambient PRO — modalny DSP","0.3.1",1,uint32_t(sizeof(metadata)/sizeof(metadata[0])),metadata,create,destroy,process,latency};return &m;}

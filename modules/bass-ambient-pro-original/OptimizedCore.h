@@ -12,6 +12,13 @@
 namespace jerzy_opt {
 using jerzy::ModalExciter;using jerzy::StrikeTransient;
 constexpr double pi = 3.14159265358979323846;
+inline double fastTanh(double x) {
+    if(std::abs(x)>1 || !std::isfinite(x)) return std::tanh(x);
+    const double z=x*x;
+    return x*(34459425+z*(4729725+z*(135135+z*(990+z))))
+        /(34459425+z*(16216200+z*(945945+z*(13860+z*45))));
+}
+
 template<class T> T clamp(T x, T a, T b) { return std::max(a, std::min(b, x)); }
 inline double hz(double n) { return 440.0 * std::exp2((n - 69.0) / 12.0); }
 inline uint32_t hash(uint32_t x) { x ^= x >> 16; x *= 0x7feb352dU; x ^= x >> 15; x *= 0x846ca68bU; return x ^ (x >> 16); }
@@ -179,8 +186,8 @@ struct Ladder {
     std::array<double,4> z{},tanhZ{};double cachedCutoff=-1,cachedRate=-1,cachedCoefficient=0;
     double process(double x,double cutoff,double resonance,double sr,double saturation) {
         if(cutoff!=cachedCutoff||sr!=cachedRate){cachedCutoff=cutoff;cachedRate=sr;cachedCoefficient=1-std::exp(-2*pi*clamp(cutoff,20.0,sr*.18)/sr);}double g=cachedCoefficient;
-        x=std::tanh(x*(1+saturation*3)-clamp(resonance,0.0,.96)*3.7*z[3]);
-        double transfer=std::tanh(x);for(size_t i=0;i<z.size();++i){auto& s=z[i];s+=g*(transfer-tanhZ[i]);x=s;transfer=std::tanh(s);tanhZ[i]=transfer;}
+        x=fastTanh(x*(1+saturation*3)-clamp(resonance,0.0,.96)*3.7*z[3]);
+        double transfer=fastTanh(x);for(size_t i=0;i<z.size();++i){auto& s=z[i];s+=g*(transfer-tanhZ[i]);x=s;transfer=fastTanh(s);tanhZ[i]=transfer;}
         return z[3]*(1+resonance*.35);
     }
     void reset() { z.fill(0);tanhZ.fill(0); }
@@ -313,7 +320,7 @@ public:
                 const double sweep=24*std::exp(-elapsed/.012);
                 double body=o1.next(hz(pitch+bend+sweep),rate*2,2);
                 double click=std::sin(2*pi*1800*elapsed)*std::exp(-elapsed/.0025)*.22;
-                double x=std::tanh((body+click)*(1+3*p.drive))/(1+p.drive);
+                double x=fastTanh((body+click)*(1+3*p.drive))/(1+p.drive);
                 double fc=p.cutoff*std::exp2(filterLevel*p.filterEnv*(accented?4.5:3.5));
                 result+=filter.process(x,fc,p.resonance,rate*2,p.drive*.3);
             } else {
@@ -425,7 +432,7 @@ private:
         else if(over>-knee*.5) reduction=(1-1/p.compRatio)*(over+knee*.5)*(over+knee*.5)/(2*knee);
         double gain=std::pow(10,(p.compMakeup-reduction)/20);
         double amount=1+p.fxSaturation*5;
-        return {std::tanh(x.l*gain*amount)/std::sqrt(amount),std::tanh(x.r*gain*amount)/std::sqrt(amount)};
+        return {fastTanh(x.l*gain*amount)/std::sqrt(amount),fastTanh(x.r*gain*amount)/std::sqrt(amount)};
     }
     Stereo chorusFX(Stereo x,const FXParameters& p) {
         double base=p.chorusMode==1?.002:.012;
@@ -448,7 +455,7 @@ private:
         delayLpf+=coefficient*(wet.l-delayLpf);delayRpf+=coefficient*(wet.r-delayRpf);
         double damage=p.delayType==0?1:1-p.damage*.85*(.5+.5*std::sin(clock*19+wander*11));
         wet={delayLpf*damage,delayRpf*damage};
-        auto colour=[&](double v){ return p.delayType==0?v:std::tanh(v*1.35)/1.35; };
+        auto colour=[&](double v){ return p.delayType==0?v:fastTanh(v*1.35)/1.35; };
         if(p.delayMode==2) { delayL.push(colour(x.l+wet.r*p.feedback));delayR.push(colour(x.r+wet.l*p.feedback)); }
         else if(p.delayMode==0) { double mono=.5*(x.l+x.r)+.5*(wet.l+wet.r)*p.feedback;delayL.push(colour(mono));delayR.push(colour(mono));wet.r=wet.l; }
         else { delayL.push(colour(x.l+wet.l*p.feedback));delayR.push(colour(x.r+wet.r*p.feedback)); }
@@ -801,7 +808,7 @@ public:
         double l=out.l-dcInL+dcCoefficient*dcOutL,r=out.r-dcInR+dcCoefficient*dcOutR;
         dcInL=out.l;dcInR=out.r;dcOutL=l;dcOutR=r;
         if(!std::isfinite(l)||!std::isfinite(r)) { dcInL=dcInR=dcOutL=dcOutR=0;return {}; }
-        if(p.limiter) { l=std::tanh(l);r=std::tanh(r); }
+        if(p.limiter) { l=fastTanh(l);r=fastTanh(r); }
         lastPPQ=ppq;
         return {l,r};
     }

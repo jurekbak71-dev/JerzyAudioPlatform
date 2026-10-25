@@ -6,6 +6,28 @@ template<class Params> static std::vector<float> snapshot(const Params& p){const
 #include "../modules/bass-ambient-pro-original/metadata.inc"
 };std::vector<float> out;for(const auto& f:fields)out.push_back(f.initial);out.push_back(float(p.bass));out.push_back(float(p.denominator));return out;}
 int main(int argc,char** argv){try{require(argc==2,"module path");double maximum=0,energy=0;uint64_t samples=0;auto started=std::chrono::steady_clock::now();
+ // Validate the bounded fast saturation path, including its libm fallback.
+ for(int i=-100000;i<=100000;++i){double x=double(i)/100000;require(std::abs(jerzy_opt::fastTanh(x)-std::tanh(x))<1e-15,"fast tanh accuracy");}
+ for(double x:{-100.,-2.,-1.00001,1.00001,2.,100.})require(jerzy_opt::fastTanh(x)==std::tanh(x),"fast tanh fallback");
+ require(std::signbit(jerzy_opt::fastTanh(-0.0)),"negative zero saturation");
+ require(std::isnan(jerzy_opt::fastTanh(std::numeric_limits<double>::quiet_NaN())),"NaN saturation");
+ // Flow must remain numerically equivalent after release tails overlap.
+ // Short note tests do not reach the full twelve-voice workload.
+ {
+  jerzy::Instrument reference;jerzy_opt::Instrument optimized;reference.prepare(44100);optimized.prepare(44100);
+  jerzy::Parameters original;jerzy_opt::Parameters efficient;
+  auto setup=[](auto& p){p.autoPlay=true;p.performanceSource=2;p.bass=false;p.pad=true;p.fxEnabled=false;p.padMode=1;p.evolution=2;p.padRelease=5;p.padResonance=.8;};setup(original);setup(efficient);
+  double beat=0;const double increment=120./(60*44100);
+  for(unsigned block=0;block<1723;++block){
+   // Exercise all five engines with the same live automation and tails.
+   original.engine1=efficient.engine1=int(block/345)%5;
+   original.engine2=efficient.engine2=(int(block/345)+1)%5;
+   reference.beginBlock(beat,120,false);optimized.beginBlock(beat,120,false);
+   for(unsigned i=0;i<512;++i){auto a=reference.next(original,beat);auto b=optimized.next(efficient,beat);float expected[]{float(a.l),float(a.r)},actual[]{float(b.l),float(b.r)};
+    for(int c=0;c<2;++c){require(std::isfinite(actual[c]),"nonfinite long Flow");maximum=std::max(maximum,double(std::abs(actual[c]-expected[c])));energy+=std::abs(actual[c]);++samples;}beat+=increment;
+   }
+  }
+ }
  for(double sr:{44100.,48000.}){
   Loaded m(argv[1],"bass-ambient-pro-original",sr);require(m.parameters.size()==725,"complete PRO parameter count");// Every parameter ID is wired independently against the original VST reader.
   for(unsigned index=0;index<m.parameters.size();++index){

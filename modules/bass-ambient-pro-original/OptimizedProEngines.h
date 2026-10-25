@@ -127,7 +127,7 @@ public:
             v.filter+=coefficient*(x-v.filter);
             // Hats/clap retain a high-pass character as tone rises.
             x=(lane==2||open)?v.filter-x*(.2+s.tone*.45):v.filter;
-            const double gain=1+s.drive*7;x=std::tanh(x*gain)/std::sqrt(gain);
+            const double gain=1+s.drive*7;x=fastTanh(x*gain)/std::sqrt(gain);
             outputs[size_t(lane)]=panSample(x*v.velocity*s.level*p.drumLevel,s.pan);out=out+outputs[size_t(lane)];v.age+=1/rate;
         }
         return out;

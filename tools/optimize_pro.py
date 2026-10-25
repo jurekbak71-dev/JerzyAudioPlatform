@@ -25,7 +25,20 @@ def generated():
         for(int i=0;i<2;++i) {'''
  replace(old,new)
  for old,new in [('engine(a,p.engine1,hz(note+bend+cents/100),','engine(a,p.engine1,frequencyA,'),('engine(b,p.engine2,hz(note+bend-cents/120+.045),','engine(b,p.engine2,frequencyB,'),('engine(c,p.engine1,hz(note+bend+cents/100+p.padDetune/100),','engine(c,p.engine1,frequencyC,'),('engine(d,p.engine2,hz(note+bend-cents/120-p.padDetune/100),','engine(d,p.engine2,frequencyD,'),('shimmer.next(hz(note+bend+12),','shimmer.next(frequencyShimmer,'),('fl.process(left,p.padCutoff*std::exp2(modulation*2),','fl.process(left,cutoffL,'),('fr.process(right,p.padCutoff*std::exp2(-modulation*1.6),','fr.process(right,cutoffR,')]:replace(old,new)
- return {'OptimizedCore.h':s,'OptimizedProEngines.h':(ROOT/'vendor/ProEngines.h').read_text()}
+ # The [9/8] Pade form agrees with tanh to double rounding precision
+ # on [-1,1]. Keep libm for larger signals, infinities and NaNs.
+ # This is a numerical implementation change, not a voice/FX reduction.
+ fast='''inline double fastTanh(double x) {
+    if(std::abs(x)>1 || !std::isfinite(x)) return std::tanh(x);
+    const double z=x*x;
+    return x*(34459425+z*(4729725+z*(135135+z*(990+z))))
+        /(34459425+z*(16216200+z*(945945+z*(13860+z*45))));
+}
+'''
+ s=s.replace('std::tanh(', 'fastTanh(')
+ replace('constexpr double pi = 3.14159265358979323846;', 'constexpr double pi = 3.14159265358979323846;\n'+fast)
+ pro=(ROOT/'vendor/ProEngines.h').read_text().replace('std::tanh(', 'fastTanh(')
+ return {'OptimizedCore.h':s,'OptimizedProEngines.h':pro}
 def main():
  p=argparse.ArgumentParser();p.add_argument('--check',action='store_true');a=p.parse_args()
  for name,data in generated().items():

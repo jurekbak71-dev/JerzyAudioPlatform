@@ -1,0 +1,5 @@
+#include "../modules/bass-ambient-pro-original/module.cpp"
+#include <iostream>
+#include <ctime>
+int main(int argc,char** argv){auto m=ja_module();double seconds=argc>1?std::stod(argv[1]):60;double sr=44100;const unsigned n=512;std::vector<float> params;for(unsigned i=0;i<m->parameter_count;++i)params.push_back(m->parameters[i].initial);
+ auto set=[&](const char* key,float value){for(unsigned i=0;i<m->parameter_count;++i)if(std::string(m->parameters[i].id)==key)params[i]=value;};set("performanceSource",2);set("autoPlay",1);set("bass",1);set("pad",1);void* state=m->create(sr,n,"");std::array<float,n> zero{},left{},right{};double energy=0;auto start=std::clock();for(unsigned block=0;block<unsigned(seconds*sr/n);++block){JAProcess p{sizeof(JAProcess),n,sr,120,double(block*n)*120/(60*sr),1,{zero.data(),zero.data()},{left.data(),right.data()},params.data(),nullptr,0};m->process(state,&p);for(float x:left)energy+=std::abs(x);}double elapsed=double(std::clock()-start)/CLOCKS_PER_SEC;m->destroy(state);std::cout<<"seconds="<<seconds<<" cpu_seconds="<<elapsed<<" cpu_percent="<<100*elapsed/seconds<<" energy="<<energy<<"\n";}
