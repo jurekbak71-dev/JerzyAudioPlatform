@@ -90,7 +90,7 @@ def main():
    assert probe()['rms']>.01
    # Combined load is protected even if each individual module fits its budget.
    subprocess.run([sys.executable,'-c',bufferCode.replace('m.buffer_change(512); m.buffer_change(128); m.buffer_change(256)','m.buffer_change(512)')],env=env,check=True,timeout=15)
-   medium=[core('ADD 0 '+json.dumps(str(build/'overload-fixture.so'))+' "6"')['id'] for _ in range(2)]
+   medium=[core('ADD 0 '+json.dumps(str(build/'overload-fixture.so'))+' "7"')['id'] for _ in range(2)]
    def aggregate_protected():
     nodes=[n for n in core('LIST')['nodes'] if n['id'] in medium]
     if not any(n['fault']==1 and n['bypass'] for n in nodes):raise ValueError('aggregate guard pending')

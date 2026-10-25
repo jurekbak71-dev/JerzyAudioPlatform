@@ -1,4 +1,4 @@
-# 0.3.0-preview.1
+# 0.3.0-preview.2
 
 Jawny transport JAM dla PRO; dokładne optymalizacje DSP; rozdzielenie ochrony CPU i ręcznego bypassu. Transakcyjna konfiguracja JACK i dostępny panel przy niedziałającym silniku. Usługa BlueZ, BLE MIDI → JACK, cztery mapowania CC/PC i klient PAN dla Hotspotu iPhone. Szczegóły i ograniczenia: docs/NAPRAWY_0.3.0_PL.md.
 
