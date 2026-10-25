@@ -91,7 +91,11 @@ class Application(Hardware):
     return json.loads(result.stdout)
    if action=='add':return self.add(p['module'],int(p['route']),p.get('asset',''))
    if action in ('remove','bypass','move'):
-    id=int(p['id']);cmd={'remove':'REMOVE','bypass':'BYPASS','move':'MOVE'}[action];tail='' if action=='remove' else ' '+str(int(p['value']));return self.core(f'{cmd} {id}{tail}')
+    id=int(p['id'])
+    if action=='bypass' and int(p['value'])==0:
+     node=next(n for n in self.core('LIST')['nodes'] if n['id']==id)
+     if node.get('fault'):self.core(f'RESET {id}')
+    cmd={'remove':'REMOVE','bypass':'BYPASS','move':'MOVE'}[action];tail='' if action=='remove' else ' '+str(int(p['value']));return self.core(f'{cmd} {id}{tail}')
    if action=='learn':return self.core(f'LEARN {int(p["id"])} {int(p["index"])}')
    if action=='param':
     node=next(n for n in self.core('LIST')['nodes'] if n['id']==int(p['id']))

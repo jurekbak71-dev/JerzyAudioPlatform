@@ -110,6 +110,18 @@ def main():
    sustained=wait(protected);assert sustained['fault_cause']==1 and sustained['cpu_average_percent']>95,sustained
    core(f'REMOVE {overload}')
    subprocess.run([sys.executable,'-c',bufferCode],env=env,check=True,timeout=30)
+   # Fault bypass freezes DSP state. Reset must recreate it off the callback,
+   # keeping its identity/params/MIDI maps and every other graph instance.
+   overload=core('ADD 0 '+json.dumps(str(build/'overload-fixture.so'))+' "latched"')['id'];wait(protected)
+   core(f'PARAM {overload} 0 0');core(f'MAP {overload} 0 75');core(f'MAPBYPASS {overload} 24 0')
+   others=[(n['id'],n['parameters']) for n in core('LIST')['nodes'] if n['id']!=overload]
+   core(f'BYPASS {overload} 0');wait(protected) # changing controls cannot clear latched DSP
+   core(f'RESET {overload}');time.sleep(.1)
+   reset=next(n for n in core('LIST')['nodes'] if n['id']==overload)
+   assert reset['fault']==0 and not reset['bypass'] and reset['parameters'][0]['value']==0 and reset['parameters'][0]['mapping']==75,reset
+   assert others==[(n['id'],n['parameters']) for n in core('LIST')['nodes'] if n['id']!=overload]
+   midi(bytes([176,24,127]));time.sleep(.03);assert next(n for n in core('LIST')['nodes'] if n['id']==overload)['user_bypass']
+   core(f'REMOVE {overload}')
    # THRU affects only direct physical audio edges, preserving host routing.
    thruCode="import importlib.util,pathlib,sys; sys.path.insert(0,"+repr(str(ROOT/'deploy/raspberry-pi'))+"); p="+repr(str(ROOT/'deploy/raspberry-pi/control.py'))+"; s=importlib.util.spec_from_file_location('control',p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); m.BASE=pathlib.Path("+repr(str(tmp))+"); j=m.Jack(); j.connect('system:capture_1','system:playback_2'); assert j.direct_thru(); m.thru(False); assert not j.direct_thru(); m.thru(True); assert ['system:capture_1','system:playback_2'] in j.direct_thru(); j.disconnect('system:capture_1','system:playback_2'); j.close()"
    subprocess.run([sys.executable,'-c',thruCode],env=env,check=True,timeout=15)

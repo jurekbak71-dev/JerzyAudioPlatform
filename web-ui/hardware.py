@@ -93,7 +93,9 @@ class Hardware:
     if p['part'] not in ('bass','pad','arp','drums','krell'):raise ValueError('Niepoprawny instrument')
     set_parameter(p['part'],1)
    elif not any(v['value'] for v in node['parameters'] if v['id'] in ('bass','pad','arp','drums','krell')):set_parameter('bass',1)
-   set_parameter('autoPlay',1);self.core(f'BYPASS {node["id"]} 0')
+   set_parameter('autoPlay',1)
+   if node.get('fault'):self.core(f'RESET {node["id"]}')
+   self.core(f'BYPASS {node["id"]} 0')
   else:raise ValueError('Niepoprawny transport')
   return {'ok':True}
  def hardware_action(self,p):

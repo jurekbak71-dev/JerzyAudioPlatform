@@ -1,6 +1,6 @@
-# 0.3.1-preview.1
+# 0.3.1-preview.2
 
-Ochrona pokazuje przyczynę, średnie i szczytowe CPU oraz budżet bloku. Odświeżanie panelu uwzględnia nowe pomiary przy aktywnej ochronie. DSP i progi ochrony bez zmian względem 0.3.0. Wydajność fizycznego Pi niepotwierdzona; to poprawka diagnostyczna.
+Start JAM i Włącz moduł po ochronie odtwarzają tylko zawieszony moduł, zachowując parametry i MIDI. Ochrona pokazuje przyczynę, średnie i szczytowe CPU oraz budżet bloku. Odświeżanie panelu uwzględnia nowe pomiary przy aktywnej ochronie. DSP i progi ochrony bez zmian względem 0.3.0. Wydajność fizycznego Pi niepotwierdzona; naprawa odzyskiwania i diagnostyki.
 
 # 0.3.0-preview.2
 

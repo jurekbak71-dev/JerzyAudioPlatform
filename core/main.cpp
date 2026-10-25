@@ -179,6 +179,11 @@ struct Engine {
   if(cmd=="COMMIT"){if(!pending)throw std::runtime_error("Brak transakcji");swap(std::move(pending));return "{\"ok\":true}";}
   if(cmd=="ADD"){int route;std::string path,asset;if(!(in>>route>>std::quoted(path)>>std::quoted(asset))||route<0||route>1)throw std::runtime_error("Niepoprawny tor lub ścieżka");
    auto node=std::make_shared<Node>(nextId++,route,path,asset,sr);if(pending)pending->nodes.push_back(node);else {auto next=std::make_unique<Graph>(*graph.load());next->nodes.push_back(node);swap(std::move(next));}return "{\"ok\":true,\"id\":"+std::to_string(node->id)+"}";}
+  if(cmd=="RESET"){unsigned id;if(pending)throw std::runtime_error("Zakończ transakcję przed resetem modułu");if(!(in>>id))throw std::runtime_error("Brak numeru instancji");auto old=find(id);
+   auto fresh=std::make_shared<Node>(old->id,old->route,old->path,old->asset,sr);
+   for(unsigned p=0;p<old->api->parameter_count;++p){fresh->params[p].store(old->params[p].load());fresh->mapping[p].store(old->mapping[p].load());}
+   fresh->bypass.store(old->bypass.load());fresh->bypassMapping.store(old->bypassMapping.load());fresh->bypassMode.store(old->bypassMode.load());
+   auto next=std::make_unique<Graph>(*graph.load());for(auto& node:next->nodes)if(node->id==id){node=fresh;break;}swap(std::move(next));return "{\"ok\":true}";}
   if(cmd=="REMOVE"||cmd=="MOVE"){unsigned id,index=0;if(!(in>>id))throw std::runtime_error("Brak numeru instancji");auto node=find(id);auto next=std::make_unique<Graph>(*graph.load());std::erase(next->nodes,node);
    if(cmd=="MOVE"){if(!(in>>index)||index>next->nodes.size())throw std::runtime_error("Niepoprawna pozycja");next->nodes.insert(next->nodes.begin()+index,node);}swap(std::move(next));}
   else if(cmd=="PARAM"){unsigned id,index;float v;if(!(in>>id>>index>>v)||!std::isfinite(v))throw std::runtime_error("Niepoprawny parametr");auto n=find(id);if(index>=n->api->parameter_count)throw std::runtime_error("Brak parametru");const auto& p=n->api->parameters[index];if(v<p.minimum||v>p.maximum||(p.integer&&v!=std::round(v)))throw std::runtime_error("Wartość poza zakresem");n->params[index].store(v);}

@@ -16,6 +16,15 @@ class HardwarePanel(unittest.TestCase):
  def test_silent_legacy_state_start_sets_jam_and_autoplay(self):
   self.panel.instrument({'id':1,'command':'start'})
   self.assertIn('PARAM 1 3 2',self.panel.commands);self.assertIn('PARAM 1 2 1',self.panel.commands);self.assertIn('BYPASS 1 0',self.panel.commands)
+ def test_faulted_jam_recreates_before_enabling(self):
+  original=self.panel.core
+  def faulted(command):
+   value=original(command)
+   if command=='LIST':value['nodes'][0]['fault']=1
+   return value
+  self.panel.core=faulted;self.panel.instrument({'id':1,'command':'start'})
+  commands=self.panel.commands
+  self.assertLess(commands.index('PARAM 1 2 1'),commands.index('RESET 1'));self.assertLess(commands.index('RESET 1'),commands.index('BYPASS 1 0'))
  def test_stop_does_not_change_instrument_levels(self):
   self.panel.instrument({'id':1,'command':'stop'});self.assertEqual(self.panel.commands,['LIST','PARAM 1 2 0'])
  def test_offline_core_returns_panel_state(self):

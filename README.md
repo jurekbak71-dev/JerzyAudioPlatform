@@ -4,7 +4,7 @@ Modułowy host JACK2 dla Raspberry Pi, pełne oryginalne DSP oraz polski panel W
 
 ## Instalacja i aktualizacja
 
-**[Pobierz instalator Windows 0.3.1](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/download/v0.3.1-preview.1/JerzyAudioPlatform-v0.3.1-Windows-Installer.zip)** · [Wszystkie paczki](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/tag/v0.3.1-preview.1)
+**[Pobierz instalator Windows 0.3.1](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/download/v0.3.1-preview.2/JerzyAudioPlatform-v0.3.1-Windows-Installer.zip)** · [Wszystkie paczki](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/tag/v0.3.1-preview.2)
 
 1. Rozpakuj cały ZIP i kliknij `START-INSTALACJA.cmd`.
 2. Podaj aktualne IP Pi i hasło. Po udanym stagingu wpisz `TAK`, aby aktywować aktualizację.
