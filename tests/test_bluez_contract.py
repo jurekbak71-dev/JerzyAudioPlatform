@@ -1,5 +1,5 @@
 """Real private D-Bus + local RPC, simulated BlueZ radio objects (not hardware)."""
-import asyncio,json,os,subprocess,sys,tempfile,unittest
+import asyncio,json,os,subprocess,sys,tempfile,time,unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1];sys.path[:0]=[str(ROOT/'deploy/connectivity'),str(ROOT/'deploy/connectivity/vendor')]
 from dbus_next import Variant
@@ -9,7 +9,7 @@ from dbus_next.constants import PropertyAccess
 from bluez_manager import MIDI_SERVICE,MIDI_CHAR,NAP
 from service import Broker
 import client
-from unittest.mock import patch
+from unittest.mock import patch,AsyncMock
 ADAPTER='/org/bluez/hci0';MIDI=ADAPTER+'/dev_AA_BB_CC_DD_EE_01';PHONE=ADAPTER+'/dev_AA_BB_CC_DD_EE_02';CHAR=MIDI+'/service001/char001'
 class Adapter(ServiceInterface):
  def __init__(self):super().__init__('org.bluez.Adapter1');self.power=False;self.scanning=False
@@ -84,6 +84,33 @@ class BluezContract(unittest.IsolatedAsyncioTestCase):
  async def test_scan_and_reject_unknown_operations(self):
   await self.rpc('scan');self.assertTrue(self.adapter.power);self.assertTrue(self.adapter.scanning);status=await self.rpc('status');self.assertEqual(len(status['bluetooth']['devices']),2)
   with self.assertRaisesRegex(RuntimeError,'Nieobsługiwana'):await self.rpc('shell',command='anything')
+ async def test_stalled_bluetooth_does_not_block_audio_status(self):
+  self.broker.monitor.cancel();await asyncio.gather(self.broker.monitor,return_exceptions=True)
+  async def stalled():await asyncio.Event().wait()
+  with patch('service.MONITOR_TIMEOUT',.02),patch.object(self.broker.bt,'refresh',side_effect=stalled),patch.object(self.broker.bt,'refresh_pan',new_callable=AsyncMock) as pan:
+   await asyncio.wait_for(self.broker.refresh_connectivity(),.5)
+   pan.assert_awaited_once()
+   await self.broker.update()
+   status=await self.rpc('status')
+   self.assertTrue(status['audio']['running']);self.assertIn('Bluetooth:',status['bluetooth']['error'])
+   self.assertGreater(status['updated'],time.time()-1)
+ async def test_stalled_pan_does_not_block_audio_status(self):
+  self.broker.monitor.cancel();await asyncio.gather(self.broker.monitor,return_exceptions=True)
+  async def stalled():await asyncio.Event().wait()
+  with patch('service.MONITOR_TIMEOUT',.02),patch.object(self.broker.bt,'refresh_pan',side_effect=stalled):
+   await asyncio.wait_for(self.broker.refresh_connectivity(),.5);await self.broker.update()
+   status=await self.rpc('status')
+   self.assertTrue(status['audio']['running']);self.assertIn('PAN:',status['bluetooth']['pan']['error'])
+ async def test_expired_audio_is_rolled_back_before_radio_poll(self):
+  self.broker.monitor.cancel();await asyncio.gather(self.broker.monitor,return_exceptions=True)
+  reached=asyncio.Event();order=[]
+  def rollback(identifier):order.append(('rollback',identifier))
+  async def radio():order.append(('radio',None));reached.set();await asyncio.Event().wait()
+  with patch.object(self.broker.audio,'expired',return_value=True),patch.object(self.broker.audio,'pending',return_value={'id':'checkpoint'}),patch.object(self.broker.audio,'rollback',side_effect=rollback,create=True),patch.object(self.broker,'refresh_connectivity',side_effect=radio):
+   task=asyncio.create_task(self.broker.watch())
+   try:await asyncio.wait_for(reached.wait(),2)
+   finally:task.cancel();await asyncio.gather(task,return_exceptions=True)
+  self.assertEqual(order,[('rollback','checkpoint'),('radio',None)])
  async def test_pair_requires_explicit_confirmation(self):
   await self.rpc('pair',address=self.phone.address)
   for _ in range(100):

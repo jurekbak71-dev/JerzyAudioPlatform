@@ -7,6 +7,7 @@ from dbus_next.aio import MessageBus
 from dbus_next.constants import BusType
 from audio import Audio
 from bluez_manager import Bluetooth,mac
+MONITOR_TIMEOUT=3
 
 async def run(*args):
  process=await asyncio.create_subprocess_exec(*args,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
@@ -60,8 +61,8 @@ class Broker:
  async def watch(self):
   while True:
    try:
-    await self.bt.refresh()
-    await self.bt.refresh_pan()
+    # A stalled BlueZ or NetworkManager read must not hide working audio
+    # or postpone the audio transaction rollback checkpoint.
     if self.audio.expired():
      record=self.audio.pending();await asyncio.to_thread(self.audio.rollback,record['id']);await self.update()
      self.last_error='Przekroczono czas zmiany audio. Przywrócono poprzednią konfigurację JACK.'
@@ -70,6 +71,7 @@ class Broker:
      await self.update();user=pwd.getpwuid(self.config['uid']).pw_name;uid=str(self.config['uid'])
      await run('runuser','-u',user,'--','env','XDG_RUNTIME_DIR=/run/user/'+uid,'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/'+uid+'/bus','systemctl','--user','start','jerzy-audio-platform-rollback.service')
      await asyncio.to_thread(self.audio.recovered,recovery['id'])
+    await self.refresh_connectivity()
     if self.bt.midi.get('connected'):
      active=next((d for d in self.bt.devices() if d['address']==self.bt.midi['device']),{})
      if not active.get('connected'):await self.bt.disconnect_midi(forget=False)
@@ -80,10 +82,21 @@ class Broker:
     await self.update()
    except Exception as error:self.last_error=str(error)
    await asyncio.sleep(2)
+ async def refresh_connectivity(self):
+  for name,refresh in [('Bluetooth',self.bt.refresh),('PAN',self.bt.refresh_pan)]:
+   try:await asyncio.wait_for(refresh(),MONITOR_TIMEOUT)
+   except asyncio.TimeoutError:
+    message=name+': przekroczono czas odczytu statusu';self.last_error=message
+    if name=='Bluetooth':self.bt.error=message
+    else:self.bt.pan={**self.bt.pan,'error':message}
+   except Exception as error:
+    self.last_error=name+': '+str(error)
+    if name=='Bluetooth':self.bt.error=self.last_error
+    else:self.bt.pan={**self.bt.pan,'error':self.last_error}
  async def start(self):
   self.socket.parent.mkdir(parents=True,exist_ok=True);self.socket.unlink(missing_ok=True)
   self.server=await asyncio.start_unix_server(self.handle,path=str(self.socket),limit=16385);os.chown(self.socket,0 if os.geteuid()==0 else os.getuid(),pwd.getpwuid(self.config['uid']).pw_gid);self.socket.chmod(0o660)
-  await self.bt.refresh();await self.update();self.monitor=asyncio.create_task(self.watch())
+  await self.refresh_connectivity();await self.update();self.monitor=asyncio.create_task(self.watch())
  async def close(self):
   tasks=[record['task'] for record in self.jobs.values()]
   if self.monitor:tasks.append(self.monitor)

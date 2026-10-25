@@ -13,3 +13,5 @@ Nie zmieniono DSP względem 0.3.0. Próby dalszych optymalizacji nie wykazały i
 Przyczyna zgłoszonego wyłączenia na Pi przy 256 próbkach nadal wymaga rzeczywistych pomiarów. Nie potwierdzono sprzętowo naprawy trzasków. Funkcje Bluetooth i SYSTEM pozostają jak w 0.3.0; radio Hotone/iPhone i sterownik HeadRush wymagają próby sprzętowej.
 
 Raport diagnostyczny zawiera teraz `hardware.host_health`: temperaturę w °C, bieżące taktowanie CPU w MHz oraz flagi `vcgencmd get_throttled`. Flagi bieżące są oddzielone od historycznych (`*_occurred`, od uruchomienia Pi). Brak odczytu ma wartość `null`, a nie zero. Odczyty są odświeżane co pięć sekund; nie zmieniają ustawień Pi, bufora ani DSP. Dane pomagają sprawdzić ograniczenia zasilania i temperatury, ale same nie potwierdzają przyczyny przeciążenia.
+
+Monitor sprzętu ogranicza każdy odczyt statusu Bluetooth i PAN do trzech sekund. Zawieszony odczyt radiowy zgłasza błąd w odpowiedniej sekcji, zamiast zatrzymywać publikowanie statusu audio. Sprawdzenie terminu przywrócenia transakcji JACK następuje przed odczytami radiowymi. Testy używają lokalnego D-Bus i symulowanego BlueZ; nie potwierdzają działania radia na Pi.
