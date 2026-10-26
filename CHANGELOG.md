@@ -1,4 +1,6 @@
-# 0.4.0-preview.1 — host LV2
+# 0.4.0-preview.2 — host LV2
+
+Poprawiono pakowanie eksportowanych źródeł CI bez katalogu .git; metadane wydania korzystają wtedy z poprawnego GITHUB_SHA.
 
 Zastąpiono format wbudowanych DSP przez standardowy host LV2 FX + Synth. Lilv wykrywa wtyczki i metadane, host obsługuje mono/stereo, Control, Atom MIDI/Time, URID, Options, Worker i snapshoty State. Panel ma ogólną bibliotekę LV2, parametry ze Scale Points, wyszukiwanie parametrów oraz klawiaturę MIDI i kanał na instancję. ZIP z katalogiem .lv2 można instalować atomowo po sprawdzeniu SHA256 i architektury. Sesje/presety oraz mikser, JACK i Bluetooth pozostają. Poprzednie sesje są archiwizowane przy migracji; stare moduły i JUCE nie są częścią domyślnej kompilacji ani instalatora. Źródła i testy starego formatu zachowano jako archiwum.
 

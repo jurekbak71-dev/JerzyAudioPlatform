@@ -4,7 +4,7 @@ Nasz host JACK2 dla Raspberry Pi z polskim panelem WWW na porcie 8093. Wczytuje 
 
 Twoje wtyczki LV2 pozostają w repozytoriach poszczególnych wtyczek VST. Host odczytuje ich metadane, pokazuje parametry i uruchamia bibliotekę Linux dla odpowiedniej architektury. Nie zawiera własnych syntezatorów ani zamienników efektów.
 
-**[Pobierz instalator Windows 0.4.0](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/download/v0.4.0-preview.1/JerzyAudioPlatform-v0.4.0-Windows-Installer.zip)** · [Wydanie testowe LV2](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/tag/v0.4.0-preview.1)
+**[Pobierz instalator Windows 0.4.0](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/download/v0.4.0-preview.2/JerzyAudioPlatform-v0.4.0-Windows-Installer.zip)** · [Wydanie testowe LV2](https://github.com/jurekbak71-dev/JerzyAudioPlatform/releases/tag/v0.4.0-preview.2)
 
 [Instrukcja LV2, instalacji i budowania](docs/LV2_PL.md) · [Kontrakt dla repozytoriów wtyczek](docs/LV2_PLUGIN_CONTRACT.md)
 

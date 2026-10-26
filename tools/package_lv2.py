@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Package the LV2 host only: no archived DSP modules or JUCE dependencies."""
-import argparse,gzip,hashlib,json,os,platform,shutil,struct,subprocess,tarfile,tempfile,zipfile
+import argparse,gzip,hashlib,json,os,platform,re,shutil,struct,subprocess,tarfile,tempfile,zipfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 def sha(p):
  with Path(p).open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
+def source_commit():
+ try:commit=subprocess.check_output(['git','-C',str(ROOT),'rev-parse','--verify','HEAD^{commit}'],text=True,stderr=subprocess.DEVNULL).strip()
+ except (subprocess.CalledProcessError,FileNotFoundError):commit=os.environ.get('GITHUB_SHA','').strip()
+ if not re.fullmatch('[a-fA-F0-9]{40}',commit):raise ValueError('Brak poprawnego SHA źródeł: wymagany checkout Git lub GITHUB_SHA z CI')
+ return commit.lower()
 def main():
  p=argparse.ArgumentParser();p.add_argument('--build',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--arch',choices=['arm64','x86_64'],required=True);p.add_argument('--library-dir',type=Path);a=p.parse_args();a.build=a.build.resolve();a.out=a.out.resolve();a.out.mkdir(parents=True,exist_ok=True);version=(ROOT/'VERSION').read_text().strip()
  with (a.build/'jerzy-audio-core').open('rb') as executable:machine=struct.unpack_from('<H',executable.read(64),18)[0]
@@ -28,7 +33,7 @@ def main():
   doc=library.parent.parent/'share/doc'
   for name in ['liblilv-0-0','libserd-0-0','libsord-0-0','libsratom-0-0','libzix-0-0']:
    if (doc/name/'copyright').is_file():shutil.copy2(doc/name/'copyright',root/'licenses'/(name+'-copyright.txt'))
-  commit=subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip()
+  commit=source_commit()
   (root/'BUILD-METADATA.json').write_text(json.dumps({'version':version,'source_commit':commit,'architecture':a.arch,'plugin_format':'lv2','hardware_validated':False,'windows_installation_validated':False},indent=2)+'\n')
   (root/'FILES-SHA256.json').write_text(json.dumps({str(f.relative_to(root)):sha(f) for f in sorted(root.rglob('*')) if f.is_file()},indent=2)+'\n')
   archive=a.out/f'JerzyAudioPlatform-v{version}-{"RPi4-arm64" if a.arch=="arm64" else "Linux-x86_64"}.tar.gz'
