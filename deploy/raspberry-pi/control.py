@@ -308,7 +308,7 @@ def restore_autostart():
 def autostart():
  status=ready()
  active=BASE/'active-release.json'
- if not active.exists() or Path(json.loads(active.read_text())['path']).resolve()!=Path(__file__).resolve().parents[2] or not status.get('version','').startswith(('0.2.','0.3.')):
+ if not active.exists() or Path(json.loads(active.read_text())['path']).resolve()!=Path(__file__).resolve().parents[2] or not status.get('version','').startswith(('0.2.','0.3.','0.4.')):
   raise RuntimeError('Najpierw aktywuj i sprawdź bieżącą wersję 0.3.0. Nie zmieniono autostartu.')
  subprocess.run(['sudo','-n','true'],check=True)
  records=[]

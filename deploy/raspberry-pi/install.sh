@@ -13,22 +13,20 @@ for name,expected in manifest.items():
  if not path.is_relative_to(root) or '..' in pathlib.Path(name).parts or hashlib.sha256(path.read_bytes()).hexdigest()!=expected:raise SystemExit('BŁĄD: uszkodzona paczka: '+name)
 print('Sumy plików poprawne.')
 PY
-ldd "$root/bin/jerzy-audio-core" > "$root/runtime-check.log" 2>&1 || { cat "$root/runtime-check.log"; exit 1; }
-if grep -q 'not found' "$root/runtime-check.log"; then cat "$root/runtime-check.log"; echo 'BŁĄD: Brakuje zależności systemowych. Nie pobieram ich podczas instalacji offline.'; exit 1; fi
-"$root/tests/module-tests" "$root/tests/legacy-modules" > "$root/module-tests.log" 2>&1 || { cat "$root/module-tests.log"; exit 1; }
-for binary in "$root"/tests/compare-*; do
- [ -f "$binary" ] || continue
- nice -n 10 "$binary" "$root/modules" >> "$root/module-tests.log" 2>&1 || { cat "$root/module-tests.log"; exit 1; }
-done
-nice -n 10 "$root/tests/module-health" "$root/modules" >> "$root/module-tests.log" 2>&1 || { cat "$root/module-tests.log"; exit 1; }
+export LD_LIBRARY_PATH="$root/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+ldd "$root/bin/jerzy-audio-core" > "$root/runtime-check.log" 2>&1 || { tail -n 25 "$root/runtime-check.log"; exit 1; }
+if grep -q 'not found' "$root/runtime-check.log"; then tail -n 25 "$root/runtime-check.log"; echo 'BŁĄD: Brakuje zależności systemowych JACK lub glibc.'; exit 1; fi
+"$root/bin/jerzy-audio-core" --list-lv2 > "$root/lv2-discovery.json" || exit 1
+python3 -c 'import json; p=json.load(open("lv2-discovery.json")); print("Wykryto wtyczek LV2:", len(p["plugins"]))'
 base="$HOME/.local/share/jerzy-audio-platform"
-mkdir -p "$base/releases" "$base/presets" "$base/irs" "$base/modules"
+mkdir -p "$base/releases" "$base/presets" "$base/irs" "$base/modules" "$base/lv2"
 # Do not overwrite a prior release or an interrupted installation.
 version=$(python3 -c 'import json;print(json.load(open("BUILD-METADATA.json"))["version"])')
 release="$base/releases/$version-$(date +%Y%m%d-%H%M%S)-$$"
 mkdir "$release"
 cp -R "$root"/. "$release"/
 for module in "$release"/modules/*; do
+ [ -d "$module" ] || continue
  name=$(basename "$module")
  # Preserve existing user-installed versions.
  [ -e "$base/modules/$name" ] || cp -R "$module" "$base/modules/$name"

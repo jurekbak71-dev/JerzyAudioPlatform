@@ -1,10 +1,10 @@
-JERZY AUDIO PLATFORM 0.3.1
+JERZY AUDIO PLATFORM 0.4.0 — HOST LV2 FX + SYNTH
 
-1. Aktualizacja: START-INSTALACJA.cmd, potem TAK.
-2. Otworz MODULY_I_WIFI_PL.html.
-3. W panelu SYSTEM ustaw 256 lub 512 probek; testuj po jednym efekcie.
-4. Nowy instrument: Bass Ambient PRO - modalny DSP. Stara wersja bez PRO pozostaje tylko dla poprzednich sesji.
-5. Gdy Wi-Fi i autostart juz dzialaja, nie konfiguruj ich ponownie.
-6. Restart i odzyskanie pustego toru sa teraz w panelu.
+1. Rozpakuj cały ZIP do nowego folderu.
+2. Uruchom START-INSTALACJA.cmd, podaj bassambient.local lub IP Pi.
+3. Potwierdź aktywację przez TAK.
+4. W panelu BIBLIOTEKA zainstaluj własne paczki ZIP z katalogiem .lv2 dla Linux ARM64.
+5. Dodaj FX w ŁAŃCUCH lub syntezator w INSTRUMENTY.
 
-Oryginalne DSP moze przekroczyc moc Pi. Wydanie testowe: wymaga sprawdzenia odsluchowego na Twoim sprzecie.
+Ta wersja jest hostem LV2; nie zawiera poprzednich modułów PRO/Big Muff.
+Szczegóły: LV2_PL.md. Hasło wpisuj tylko w komunikacie SSH.

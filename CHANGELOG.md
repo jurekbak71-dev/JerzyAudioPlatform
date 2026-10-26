@@ -1,3 +1,7 @@
+# 0.4.0-preview.1 — host LV2
+
+Zastąpiono format wbudowanych DSP przez standardowy host LV2 FX + Synth. Lilv wykrywa wtyczki i metadane, host obsługuje mono/stereo, Control, Atom MIDI/Time, URID, Options, Worker i snapshoty State. Panel ma ogólną bibliotekę LV2, parametry ze Scale Points, wyszukiwanie parametrów oraz klawiaturę MIDI i kanał na instancję. ZIP z katalogiem .lv2 można instalować atomowo po sprawdzeniu SHA256 i architektury. Sesje/presety oraz mikser, JACK i Bluetooth pozostają. Poprzednie sesje są archiwizowane przy migracji; stare moduły i JUCE nie są częścią domyślnej kompilacji ani instalatora. Źródła i testy starego formatu zachowano jako archiwum.
+
 # 0.3.1-preview.4
 
 PRO 0.3.1: szybsza numeryczna realizacja tanh w zakresie [-1,1], z oryginalną funkcją poza tym zakresem. Bez ograniczania głosów i FX; test Flow obejmuje 20 sekund i pięć silników. Big Muff 0.2.2: cache identycznych macierzy liniowych dla adaptacyjnych podkroków i wektorowe obliczanie charakterystyk elementów, bez zmiany solvera nieliniowego. SYSTEM: wykrywanie właściwego procesu JACK wewnątrz grupy usługi, obsługa lokalnej instalacji root i nazwy argv bez pełnej ścieżki. Źródła vendor pozostają niezmienione. Próba na fizycznym Pi nadal wymagana.

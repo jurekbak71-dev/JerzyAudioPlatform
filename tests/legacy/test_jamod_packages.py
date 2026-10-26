@@ -1,6 +1,6 @@
 import hashlib,importlib.util,json,os,platform,shutil,sys,tempfile,unittest,zipfile
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'module-manager'));sys.path.insert(0,str(ROOT/'tools'))
+ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'module-manager'));sys.path.insert(0,str(ROOT/'tools'))
 from manager import Library
 from package_module import package
 BUILD=Path(os.environ.get('JERZY_TEST_BUILD','/workspace/shared/build-platform'))

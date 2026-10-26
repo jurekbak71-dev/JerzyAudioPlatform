@@ -18,6 +18,14 @@ def core(command):
   if not value.get('ok'):raise RuntimeError(value.get('error','Błąd silnika'))
   return value
 
+def migrate_lv2_session():
+ file=BASE/'last-session.json'
+ if not file.exists():return
+ old=json.loads(file.read_text())
+ if any(not n.get('module','').startswith('lv2:') for n in old.get('nodes',[])):
+  atomic_json(BASE/('session-before-lv2-'+str(time.time_ns())+'.json'),old)
+  old['nodes']=[];old['schema']=1;old['plugin_format']='lv2';atomic_json(file,old)
+
 def main():
  end=time.monotonic()+60
  while True:
@@ -55,7 +63,7 @@ def main():
   except ConnectionRefusedError:path.unlink()
   else:raise RuntimeError('Pod gniazdem działa już silnik')
  atomic_json(BASE/'session-recovery.json',{'error':None,'pending':True})
- process=subprocess.Popen([str(ROOT/'bin/jerzy-audio-core'),str(path)])
+ environment=os.environ.copy();environment['LD_LIBRARY_PATH']=str(ROOT/'lib')+(':'+environment['LD_LIBRARY_PATH'] if environment.get('LD_LIBRARY_PATH') else '');process=subprocess.Popen([str(ROOT/'bin/jerzy-audio-core'),str(path)],env=environment)
  def stop(signum,frame):
   if process.poll() is None:process.terminate()
  signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
@@ -73,6 +81,7 @@ def main():
   skip=BASE/'skip-session-once'
   if (BASE/'last-session.json').exists() and not skip.exists():
    try:
+    migrate_lv2_session()
     sys.path.insert(0,str(ROOT/'web-ui'));from server import Application
     args=argparse.Namespace(data=str(BASE),modules=str(BASE/'modules'),socket=str(path))
     Application(args).apply_preset(json.loads((BASE/'last-session.json').read_text()))

@@ -127,7 +127,7 @@ def main():
    subprocess.run([sys.executable,'-c',thruCode],env=env,check=True,timeout=15)
    # Panel starts on a free local port; make real HTTP requests.
    with socket.socket() as portSocket:portSocket.bind(('127.0.0.1',0));port=portSocket.getsockname()[1]
-   web=start([sys.executable,str(ROOT/'web-ui/server.py'),'--socket',str(tmp/'core.sock'),'--modules',str(build/'modules'),'--data',str(tmp/'data'),'--port',str(port)],'web')
+   web=start([sys.executable,str(ROOT/'web-ui/server.py'),'--legacy-modules','--socket',str(tmp/'core.sock'),'--modules',str(build/'modules'),'--data',str(tmp/'data'),'--port',str(port)],'web')
    url=f'http://127.0.0.1:{port}'
    def get(path):return json.load(urllib.request.urlopen(url+path,timeout=5))
    token=wait(lambda:get('/api/session'))['token']

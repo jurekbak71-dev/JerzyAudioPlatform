@@ -24,27 +24,32 @@ jobs:
       - name: Narzędzia zgodne z Bookworm
         run: |
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git g++ cmake ninja-build pkg-config libjack-jackd2-dev jackd2 python3 ca-certificates nodejs dbus-daemon
-      - name: Kompilacja i testy DSP
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git g++ cmake ninja-build pkg-config libjack-jackd2-dev jackd2 python3 ca-certificates nodejs dbus-daemon liblilv-dev lv2-dev mda-lv2 lv2-examples
+      - name: Host LV2 — kompilacja i testy
         run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_SKIP_RPATH=ON
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_SKIP_RPATH=ON -DJERZY_TEST_EXTERNAL_LV2=ON
           cmake --build build --parallel 2
           python3 tools/ci_run.py docs/BUILD-TESTS.log ctest --test-dir build --output-on-failure
-          python3 tests/certify_originals.py --build build
-          ./build/module-tests ./build/modules > docs/DSP-TESTS.log
       - name: JACK, HTTP, presety, paczki i rollback z błędem
         env:
           JERZY_TEST_BUILD: ${{ github.workspace }}/build
         run: |
-          python3 tools/ci_run.py docs/INTEGRATION-TESTS.log python3 tests/integration.py --build build --stress-seconds 15
+          python3 tools/ci_run.py docs/INTEGRATION-TESTS.log python3 tests/lv2_integration.py --build build
           python3 tools/ci_run.py docs/PACKAGE-TESTS.log python3 -m unittest discover -s tests -p 'test_*.py' -v
           node --check web-ui/app.js
           node --check web-ui/hardware.js
-          python3 tools/optimize_pro.py --check
-          python3 tools/optimize_muff.py --check
           sh -n deploy/raspberry-pi/install.sh
+      - name: Panel LV2 w przeglądarce Chromium
+        if: matrix.arch == 'x86_64'
+        env:
+          NODE_PATH: /tmp/jerzy-ui/node_modules
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends chromium npm
+          npm install --prefix /tmp/jerzy-ui --ignore-scripts --no-audit --no-fund playwright@1.56.1
+          python3 tools/ci_run.py docs/BROWSER-TESTS.log python3 tests/lv2_integration.py --build build --browser
       - name: Budowanie rzeczywistych paczek
-        run: python3 tools/ci_run.py docs/PACKAGE-BUILD.log python3 tools/package.py --build build --out dist --arch ${{ matrix.arch }}
+        run: python3 tools/ci_run.py docs/PACKAGE-BUILD.log python3 tools/package_lv2.py --build build --out dist --arch ${{ matrix.arch }}
       - uses: actions/upload-artifact@v4
         with:
           name: JerzyAudioPlatform-${{ matrix.arch }}
