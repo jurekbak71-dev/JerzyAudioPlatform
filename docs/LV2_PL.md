@@ -25,7 +25,7 @@ Host wykrywa także standardowe katalogi ~/.lv2, /usr/lib/lv2 i /usr/local/lib/l
 - Porty wejściowe Control: zakresy, wartości początkowe, przełączniki/liczby całkowite i listy wartości Scale Points.
 - MIDI Note/CC/Program Change/Pitch Bend przez Atom Sequence; znaczniki czasu nut w bloku, wybór kanału odbioru na instancję i klawiatura ekranowa.
 - Informacje o tempie/pozycji przez Atom Time Position, URID map/unmap, opcje częstotliwości i maksymalnego bloku, LV2 Worker z ograniczonymi kolejkami.
-- Sesje i presety parametrów oraz snapshoty rozszerzenia LV2 State do plików state.ttl. Zapis/odtworzenie stanu odbywa się przy wstrzymanej instancji, poza callbackiem audio. Pozostałe instancje mogą działać.
+- Sesje i presety parametrów oraz snapshoty rozszerzenia LV2 State do plików state.ttl. Snapshot wewnętrznego stanu jest tworzony przy jawnym zapisie presetu lub sesji; automatyczny zapis parametrów zachowuje ostatni taki snapshot. Zapis/odtworzenie stanu odbywa się przy wstrzymanej instancji, poza callbackiem audio. Pozostałe instancje mogą działać.
 - Obecny mikser, bypass, ochrona CPU, ustawienia JACK, Bluetooth i mapowanie MIDI CC.
 
 Host pokazuje parametry we własnym panelu WWW. Nie uruchamia okien GUI wtyczek. Obowiązkowe nieobsługiwane funkcje/typy portów są wykrywane przed uruchomieniem i opisane w bibliotece. Nie obsługujemy portów CV, starego rozszerzenia Event, wyjść ponad stereo, routingu wyjściowego MIDI wtyczki ani edytora komunikatów Patch do wyboru plików. Wtyczki wymagające własnego interfejsu do ładowania sampli lub specjalnych funkcji hosta mogą potrzebować dalszej obsługi. LV2 samo w sobie nie gwarantuje małego CPU.

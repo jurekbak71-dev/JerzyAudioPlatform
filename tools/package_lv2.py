@@ -7,7 +7,7 @@ def sha(p):
  with Path(p).open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
 def main():
  p=argparse.ArgumentParser();p.add_argument('--build',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--arch',choices=['arm64','x86_64'],required=True);p.add_argument('--library-dir',type=Path);a=p.parse_args();a.build=a.build.resolve();a.out=a.out.resolve();a.out.mkdir(parents=True,exist_ok=True);version=(ROOT/'VERSION').read_text().strip()
- machine=struct.unpack_from('<H',(a.build/'jerzy-audio-core').read_bytes(),18)[0]
+ with (a.build/'jerzy-audio-core').open('rb') as executable:machine=struct.unpack_from('<H',executable.read(64),18)[0]
  if machine!={'arm64':183,'x86_64':62}[a.arch]:raise ValueError('Wrong binary architecture')
  library=a.library_dir or Path('/usr/lib')/('aarch64-linux-gnu' if a.arch=='arm64' else 'x86_64-linux-gnu')
  with tempfile.TemporaryDirectory() as temporary:
@@ -21,7 +21,8 @@ def main():
   for name in libraries:
    source=(library/name).resolve()
    if not source.is_file():raise ValueError('Missing runtime LV2 library: '+str(library/name))
-   if struct.unpack_from('<H',source.read_bytes(),18)[0]!=machine:raise ValueError('Wrong library architecture: '+name)
+   with source.open('rb') as binary:library_machine=struct.unpack_from('<H',binary.read(64),18)[0]
+   if library_machine!=machine:raise ValueError('Wrong library architecture: '+name)
    shutil.copy2(source,root/'lib'/name)
   # Redistribute dependency copyright/license notices beside the runtime libs.
   doc=library.parent.parent/'share/doc'
