@@ -1,0 +1,6 @@
+@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+<urn:jerzy:test:gain> a lv2:Plugin ; lv2:binary <fixture.so> ; rdfs:seeAlso <plugins.ttl> .
+<urn:jerzy:test:synth> a lv2:Plugin ; lv2:binary <fixture.so> ; rdfs:seeAlso <plugins.ttl> .
+<urn:jerzy:test:worker> a lv2:Plugin ; lv2:binary <fixture.so> ; rdfs:seeAlso <plugins.ttl> .
+<urn:jerzy:test:unsupported> a lv2:Plugin ; lv2:binary <fixture.so> ; rdfs:seeAlso <plugins.ttl> .

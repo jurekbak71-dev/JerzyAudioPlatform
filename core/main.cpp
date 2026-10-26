@@ -1,4 +1,5 @@
 #include "../module-sdk/jerzy_module.h"
+#include "lv2_host.h"
 #include <jack/jack.h>
 #include <jack/midiport.h>
 #include <sys/socket.h>
@@ -36,10 +37,17 @@ void signalHandler(int){running.store(false);}
 uint64_t cpuTime(){timespec t{};clock_gettime(CLOCK_THREAD_CPUTIME_ID,&t);return uint64_t(t.tv_sec)*1000000000u+uint64_t(t.tv_nsec);}
 std::string json(const std::string& s){std::ostringstream o;o<<'"';for(unsigned char c:s){if(c=='"'||c=='\\')o<<'\\'<<c;else if(c<32)o<<"\\u"<<std::hex<<std::setw(4)<<std::setfill('0')<<int(c)<<std::dec;else o<<c;}o<<'"';return o.str();}
 struct Node {
+ std::unique_ptr<jerzy_lv2::Plugin> lv2;
+ std::array<JAMidi,256> injected{};std::atomic<unsigned> midiRead{0},midiWrite{0};std::atomic<int> midiChannel{0};std::atomic<bool> paused{false};
  void* lib=nullptr;const JAModule* api=nullptr;void* instance=nullptr;unsigned id;int route;std::string path,asset;
  std::array<std::atomic<float>,JA_MAX_PARAMETERS> params{};std::array<std::atomic<int>,JA_MAX_PARAMETERS> mapping{};std::atomic<bool> bypass{false},suspended{false},resetLoad{false};std::atomic<unsigned> fault{0},faultCause{0};std::atomic<float> cost{0},wallCost{0},averageCost{0},peakCost{0},faultBudget{0},faultGraphCost{0};double average=0;unsigned overruns=0;std::atomic<int> bypassMapping{-1},bypassMode{0};bool pressed=false;float mix=0;
  Node(unsigned i,int r,std::string p,std::string a,double sr):id(i),route(r),path(std::move(p)),asset(std::move(a)){
   for(auto& value:mapping)value.store(-1);
+  if(path.starts_with("lv2:")){
+   lv2=std::make_unique<jerzy_lv2::Plugin>(path.substr(4),sr,MAX_FRAMES);api=&lv2->api;instance=lv2.get();
+   for(unsigned j=0;j<api->parameter_count;++j)params[j].store(api->parameters[j].initial);
+   return;
+  }
   lib=dlopen(path.c_str(),RTLD_NOW|RTLD_LOCAL);if(!lib)throw std::runtime_error("Nie można otworzyć biblioteki modułu");
   try {auto entry=reinterpret_cast<JAEntry>(dlsym(lib,"ja_module"));if(!entry)throw std::runtime_error("Brak symbolu ja_module");api=entry();
    if(!api||api->size!=sizeof(JAModule)||api->abi!=JA_ABI||api->parameter_count>JA_MAX_PARAMETERS||!api->id||!api->name||!api->version||!api->create||!api->destroy||!api->process||!api->latency||(api->parameter_count&&!api->parameters))throw std::runtime_error("Niezgodne ABI modułu");
@@ -60,7 +68,7 @@ struct Engine {
  std::atomic<int> rtPolicy{0},rtPriority{0};
  std::atomic<unsigned> learnNode{0},learnParameter{0};std::atomic<int> lastCC{-1};
  std::unique_ptr<Graph> pending;std::vector<std::unique_ptr<Graph>> retired;
- Bus bus[2];float fade=0,masterSmooth=.7;double beat=0,sr=44100;unsigned nextId=1;
+ Bus bus[2];float fade=0,masterSmooth=.7;double beat=0,sr=44100;unsigned nextId=1;uint64_t transportFrame=0;
  std::array<std::array<std::array<float,MAX_FRAMES>,2>,2> audio{};
  std::array<std::array<float,MAX_FRAMES>,2> wet{};
  ~Engine(){if(client){jack_deactivate(client);jack_client_close(client);}delete graph.exchange(nullptr);}
@@ -92,6 +100,7 @@ struct Engine {
   for(unsigned i=0;i<count;++i)if(events[i].size==3&&(events[i].bytes[0]&240)==176)e.lastCC.store((events[i].bytes[0]&15)*128+events[i].bytes[1]);
   const double tempo=e.bpm.load(std::memory_order_relaxed);const auto learnNode=e.learnNode.load(std::memory_order_relaxed),learnParameter=e.learnParameter.load(std::memory_order_relaxed);
   for(const auto& owner:g->nodes){Node& node=*owner;auto& a=e.audio[node.route];
+   if(node.paused.load(std::memory_order_acquire))continue;
    if(node.resetLoad.exchange(false)){node.average=0;node.overruns=0;node.pressed=false;if(!node.fault.load()){node.peakCost.store(0);node.averageCost.store(0);node.faultCause.store(0);}}
    const int bypassMapping=node.bypassMapping.load(std::memory_order_relaxed);
    if(bypassMapping>=0)for(unsigned m=0;m<count;++m){auto& event=events[m];if(event.size<2)continue;const int type=event.bytes[0]&240;const int key=(event.bytes[0]&15)*128+event.bytes[1]+(type==192?2048:0);if(key!=bypassMapping||(type!=192&&(type!=176||event.size!=3)))continue;
@@ -104,12 +113,17 @@ struct Engine {
     if(count&&learnNode==node.id&&learnParameter==p){for(unsigned m=0;m<count;++m)if(events[m].size==3&&(events[m].bytes[0]&240)==176){node.mapping[p].store((events[m].bytes[0]&15)*128+events[m].bytes[1]);e.learnNode.store(0);break;}}
     const int mapping=count?node.mapping[p].load(std::memory_order_relaxed):-1;
     if(mapping>=0)for(unsigned m=0;m<count;++m)if(events[m].size==3&&(events[m].bytes[0]&240)==176&&mapping==(events[m].bytes[0]&15)*128+events[m].bytes[1]){
-     const auto& metadata=node.api->parameters[p];float v=metadata.minimum+(metadata.maximum-metadata.minimum)*events[m].bytes[2]/127.f;if(metadata.integer)v=std::round(v);node.params[p].store(v);
+     const auto& metadata=node.api->parameters[p];float v=metadata.minimum+(metadata.maximum-metadata.minimum)*events[m].bytes[2]/127.f;if(metadata.integer)v=std::round(v);if(node.lv2)v=node.lv2->normalize(p,v);node.params[p].store(v);
     }
     values[p]=node.params[p].load(std::memory_order_relaxed);
    }
-   JAProcess b{sizeof(JAProcess),frames,e.sr,tempo,e.beat,1,{a[0].data(),a[1].data()},{e.wet[0].data(),e.wet[1].data()},values.data(),events.data(),count};
+   std::array<JAMidi,512> pluginEvents{};unsigned pluginCount=0;const int channel=node.midiChannel.load();
+   auto read=node.midiRead.load(std::memory_order_relaxed),write=node.midiWrite.load(std::memory_order_acquire);
+   while(read!=write){auto event=node.injected[read%node.injected.size()];if(!channel||event.bytes[0]>=0xf0||(event.bytes[0]&15)==channel-1)pluginEvents[pluginCount++]=event;++read;}node.midiRead.store(read,std::memory_order_release);
+   for(unsigned i=0;i<count;++i)if(!channel||events[i].bytes[0]>=0xf0||(events[i].bytes[0]&15)==channel-1)pluginEvents[pluginCount++]=events[i];
+   JAProcess b{sizeof(JAProcess),frames,e.sr,tempo,e.beat,1,{a[0].data(),a[1].data()},{e.wet[0].data(),e.wet[1].data()},values.data(),pluginEvents.data(),pluginCount};
    auto started=std::chrono::steady_clock::now();const auto cpuStarted=cpuTime();
+   if(node.lv2)node.lv2->setTransportFrame(e.transportFrame);
    node.api->process(node.instance,&b);
    const double budget=double(frames)/e.sr;const double elapsed=std::chrono::duration<double>(std::chrono::steady_clock::now()-started).count();
    const double cpu=double(cpuTime()-cpuStarted)*1e-9;
@@ -148,7 +162,7 @@ struct Engine {
   if(e.overloadedBlocks>=6){Node* expensive=nullptr;for(const auto& owner:g->nodes)if(!owner->bypass.load()&&!owner->suspended.load()&&(!expensive||owner->cost.load()>expensive->cost.load()))expensive=owner.get();
    if(expensive){expensive->faultCause.store(3);expensive->faultGraphCost.store(float(callbackCPUSeconds/(double(frames)/e.sr)*100));expensive->faultBudget.store(float(1000.*frames/e.sr));expensive->fault.store(1);expensive->suspended.store(true);expensive->mix=0;e.protectionEvents.fetch_add(1);}e.overloadedBlocks=0;
   }
-  e.peak.store(maxPeak);e.rms.store(float(std::sqrt(squares/(2*frames))));e.beat+=frames*tempo/(60*e.sr);e.silent.store(e.fade==0);e.observed.store(g);e.blocks.fetch_add(1);e.busy.store(false);return 0;
+  e.peak.store(maxPeak);e.rms.store(float(std::sqrt(squares/(2*frames))));e.beat+=frames*tempo/(60*e.sr);e.transportFrame+=frames;e.silent.store(e.fade==0);e.observed.store(g);e.blocks.fetch_add(1);e.busy.store(false);return 0;
  }
  void start(){jack_status_t status{};client=jack_client_open("JerzyAudioPlatform",JackNoStartServer,&status);if(!client)throw std::runtime_error("JACK nie działa");sr=jack_get_sample_rate(client);
   for(int c=0;c<2;++c){std::string in="wejscie_"+std::to_string(c+1),out="wyjscie_"+std::to_string(c+1);input[c]=jack_port_register(client,in.c_str(),JACK_DEFAULT_AUDIO_TYPE,JackPortIsInput,0);output[c]=jack_port_register(client,out.c_str(),JACK_DEFAULT_AUDIO_TYPE,JackPortIsOutput,0);if(!input[c]||!output[c])throw std::runtime_error("Nie można utworzyć portów JACK");}
@@ -166,14 +180,21 @@ struct Engine {
  std::string status(){std::ostringstream o;o<<"{\"ok\":true,\"client\":"<<json(jack_get_client_name(client))<<",\"sample_rate\":"<<sr<<",\"buffer\":"<<jack_get_buffer_size(client)<<",\"buffer_ms\":"<<1000.*jack_get_buffer_size(client)/sr<<",\"cpu\":"<<jack_cpu_load(client)<<",\"protection_events\":"<<protectionEvents<<",\"rt_policy\":"<<rtPolicy<<",\"rt_priority\":"<<rtPriority<<",\"xruns\":"<<xruns<<",\"clips\":"<<clips<<",\"invalid_samples\":"<<badSamples<<",\"blocks\":"<<blocks<<",\"midi_overflow\":"<<midiOverflow<<",\"restart_required\":"<<(invalidRate?"true":"false")<<",\"peak\":"<<peak<<",\"rms\":"<<rms<<",\"master\":"<<master<<",\"last_cc\":"<<lastCC<<",\"learn_node\":"<<learnNode<<",\"bpm\":"<<bpm<<",\"limiter\":"<<(limiter?"true":"false")<<",\"ceiling\":"<<ceiling<<",\"buses\":[";
   for(int r=0;r<2;++r){if(r)o<<',';auto& b=bus[r];o<<"{\"gain\":"<<b.gain<<",\"pan\":"<<b.pan<<",\"mute\":"<<(b.mute?"true":"false")<<",\"solo\":"<<(b.solo?"true":"false")<<",\"peak\":"<<b.peak<<",\"rms\":"<<b.rms<<'}';}o<<"]}";return o.str();
  }
- std::string list(bool staging=false){std::ostringstream o;o<<"{\"ok\":true,\"nodes\":[";bool first=true;for(auto& n:(staging&&pending?pending.get():graph.load())->nodes){if(!first)o<<',';first=false;
-  o<<"{\"id\":"<<n->id<<",\"module\":"<<json(n->api->id)<<",\"name\":"<<json(n->api->name)<<",\"path\":"<<json(n->path)<<",\"asset\":"<<json(n->asset)<<",\"route\":"<<n->route<<",\"instrument\":"<<(n->api->instrument?"true":"false")<<",\"bypass\":"<<((n->bypass.load()||n->suspended.load())?"true":"false")<<",\"user_bypass\":"<<(n->bypass?"true":"false")<<",\"fault\":"<<n->fault<<",\"cpu_percent\":"<<n->cost<<",\"wall_percent\":"<<n->wallCost<<",\"cpu_average_percent\":"<<n->averageCost<<",\"cpu_peak_percent\":"<<n->peakCost<<",\"fault_cause\":"<<n->faultCause<<",\"fault_budget_ms\":"<<n->faultBudget<<",\"fault_graph_cpu_percent\":"<<n->faultGraphCost<<",\"latency\":"<<n->api->latency(n->instance)<<",\"parameters\":[";
-  for(unsigned p=0;p<n->api->parameter_count;++p){if(p)o<<',';const auto& v=n->api->parameters[p];o<<"{\"id\":"<<json(v.id)<<",\"label\":"<<json(v.label)<<",\"unit\":"<<json(v.unit)<<",\"choices\":"<<json(v.choices)<<",\"min\":"<<v.minimum<<",\"max\":"<<v.maximum<<",\"default\":"<<v.initial<<",\"integer\":"<<v.integer<<",\"mapping\":"<<n->mapping[p]<<",\"value\":"<<n->params[p]<<'}';}o<<"]}";
+ std::string list(bool staging=false){std::ostringstream o;o<<std::setprecision(std::numeric_limits<float>::max_digits10);o<<"{\"ok\":true,\"nodes\":[";bool first=true;for(auto& n:(staging&&pending?pending.get():graph.load())->nodes){if(!first)o<<',';first=false;
+  o<<"{\"id\":"<<n->id<<",\"module\":"<<json(n->api->id)<<",\"name\":"<<json(n->api->name)<<",\"path\":"<<json(n->path)<<",\"asset\":"<<json(n->asset)<<",\"route\":"<<n->route<<",\"midi_channel\":"<<n->midiChannel.load()<<",\"instrument\":"<<(n->api->instrument?"true":"false")<<",\"bypass\":"<<((n->bypass.load()||n->suspended.load())?"true":"false")<<",\"user_bypass\":"<<(n->bypass?"true":"false")<<",\"fault\":"<<n->fault<<",\"cpu_percent\":"<<n->cost<<",\"wall_percent\":"<<n->wallCost<<",\"cpu_average_percent\":"<<n->averageCost<<",\"cpu_peak_percent\":"<<n->peakCost<<",\"fault_cause\":"<<n->faultCause<<",\"fault_budget_ms\":"<<n->faultBudget<<",\"fault_graph_cpu_percent\":"<<n->faultGraphCost<<",\"latency\":"<<n->api->latency(n->instance)<<",\"parameters\":[";
+  for(unsigned p=0;p<n->api->parameter_count;++p){if(p)o<<',';const auto& v=n->api->parameters[p];o<<"{\"id\":"<<json(v.id)<<",\"label\":"<<json(v.label)<<",\"unit\":"<<json(v.unit)<<",\"choices\":"<<json(v.choices)<<",\"min\":"<<v.minimum<<",\"max\":"<<v.maximum<<",\"default\":"<<v.initial<<",\"integer\":"<<v.integer<<",\"mapping\":"<<n->mapping[p]<<",\"value\":"<<n->params[p];if(n->lv2)o<<",\"enumeration\":"<<(n->lv2->enumeration(p)?"true":"false")<<",\"scale_points\":"<<n->lv2->points(p);o<<'}';}o<<"]}";
   }o<<"]}";return o.str();}
  std::string command(const std::string& line){std::istringstream in(line);std::string cmd;in>>cmd;
   if(cmd=="STATUS")return status();
   if(cmd=="LIST")return list();
   if(cmd=="PENDING")return list(true);
+  if(cmd=="LV2SAVE"||cmd=="LV2RESTORE"){unsigned id;std::string file;if(!(in>>id>>std::quoted(file)))throw std::runtime_error("Brak ścieżki stanu LV2");auto node=find(id);if(!node->lv2)throw std::runtime_error("Instancja nie jest LV2");
+   node->paused.store(true,std::memory_order_release);struct Resume{Node* node;~Resume(){node->paused.store(false,std::memory_order_release);}}resume{node.get()};
+   if(!pending){auto before=blocks.load();auto end=std::chrono::steady_clock::now()+std::chrono::seconds(3);while(blocks.load()==before){if(std::chrono::steady_clock::now()>end)throw std::runtime_error("Audio nie potwierdziło pauzy instancji LV2");std::this_thread::sleep_for(std::chrono::milliseconds(1));}}
+   if(cmd=="LV2SAVE")node->lv2->saveState(file);else node->lv2->restoreState(file);return "{\"ok\":true}";
+  }
+  if(cmd=="MIDICHANNEL"){unsigned id;int channel;if(!(in>>id>>channel)||channel<0||channel>16)throw std::runtime_error("Kanał MIDI: 0–16");find(id)->midiChannel.store(channel);return "{\"ok\":true}";}
+  if(cmd=="MIDI"){unsigned id,status,a,b;if(!(in>>id>>status>>a>>b)||status<128||status>239||a>127||b>127)throw std::runtime_error("Niepoprawny komunikat MIDI");auto node=find(id);auto write=node->midiWrite.load();if(write-node->midiRead.load(std::memory_order_acquire)==node->injected.size())throw std::runtime_error("Kolejka MIDI jest pełna");node->injected[write%node->injected.size()]={0,(status&240)==192||(status&240)==208?2u:3u,{uint8_t(status),uint8_t(a),uint8_t(b)}};node->midiWrite.store(write+1,std::memory_order_release);return "{\"ok\":true}";}
   if(cmd=="BEGIN"){if(pending)throw std::runtime_error("Transakcja już trwa");pending=std::make_unique<Graph>();return "{\"ok\":true}";}
   if(cmd=="ABORT"){pending.reset();return "{\"ok\":true}";}
   if(cmd=="COMMIT"){if(!pending)throw std::runtime_error("Brak transakcji");swap(std::move(pending));return "{\"ok\":true}";}
@@ -182,11 +203,11 @@ struct Engine {
   if(cmd=="RESET"){unsigned id;if(pending)throw std::runtime_error("Zakończ transakcję przed resetem modułu");if(!(in>>id))throw std::runtime_error("Brak numeru instancji");auto old=find(id);
    auto fresh=std::make_shared<Node>(old->id,old->route,old->path,old->asset,sr);
    for(unsigned p=0;p<old->api->parameter_count;++p){fresh->params[p].store(old->params[p].load());fresh->mapping[p].store(old->mapping[p].load());}
-   fresh->bypass.store(old->bypass.load());fresh->bypassMapping.store(old->bypassMapping.load());fresh->bypassMode.store(old->bypassMode.load());
+   fresh->midiChannel.store(old->midiChannel.load());fresh->bypass.store(old->bypass.load());fresh->bypassMapping.store(old->bypassMapping.load());fresh->bypassMode.store(old->bypassMode.load());
    auto next=std::make_unique<Graph>(*graph.load());for(auto& node:next->nodes)if(node->id==id){node=fresh;break;}swap(std::move(next));return "{\"ok\":true}";}
   if(cmd=="REMOVE"||cmd=="MOVE"){unsigned id,index=0;if(!(in>>id))throw std::runtime_error("Brak numeru instancji");auto node=find(id);auto next=std::make_unique<Graph>(*graph.load());std::erase(next->nodes,node);
    if(cmd=="MOVE"){if(!(in>>index)||index>next->nodes.size())throw std::runtime_error("Niepoprawna pozycja");next->nodes.insert(next->nodes.begin()+index,node);}swap(std::move(next));}
-  else if(cmd=="PARAM"){unsigned id,index;float v;if(!(in>>id>>index>>v)||!std::isfinite(v))throw std::runtime_error("Niepoprawny parametr");auto n=find(id);if(index>=n->api->parameter_count)throw std::runtime_error("Brak parametru");const auto& p=n->api->parameters[index];if(v<p.minimum||v>p.maximum||(p.integer&&v!=std::round(v)))throw std::runtime_error("Wartość poza zakresem");n->params[index].store(v);}
+  else if(cmd=="PARAM"){unsigned id,index;float v;if(!(in>>id>>index>>v)||!std::isfinite(v))throw std::runtime_error("Niepoprawny parametr");auto n=find(id);if(index>=n->api->parameter_count)throw std::runtime_error("Brak parametru");const auto& p=n->api->parameters[index];if(v<p.minimum||v>p.maximum||(p.integer&&v!=std::round(v)))throw std::runtime_error("Wartość poza zakresem");if(n->lv2&&n->lv2->normalize(index,v)!=v)throw std::runtime_error("Wybierz wartość z listy parametru LV2");n->params[index].store(v);}
   else if(cmd=="LEARN"||cmd=="MAP"){unsigned id,p;int mapping=-1;if(!(in>>id>>p))throw std::runtime_error("Niepoprawne mapowanie MIDI");auto n=find(id);if(p>=n->api->parameter_count)throw std::runtime_error("Brak parametru MIDI");if(cmd=="LEARN"){learnParameter.store(p);learnNode.store(id);}else{if(!(in>>mapping)||mapping<-1||mapping>2047)throw std::runtime_error("Niepoprawny kanał lub CC");n->mapping[p].store(mapping);}}
   else if(cmd=="MAPBYPASS"){unsigned id;int mapping,mode;if(!(in>>id>>mapping>>mode)||mapping< -1||mapping>4095||mode<0||mode>1)throw std::runtime_error("Niepoprawne mapowanie przełącznika MIDI");auto n=find(id);n->bypassMapping.store(mapping);n->bypassMode.store(mode);n->resetLoad.store(true);}
   else if(cmd=="BYPASS"){unsigned id;int v;if(!(in>>id>>v)||(v!=0&&v!=1))throw std::runtime_error("Niepoprawny bypass");auto n=find(id);n->bypass.store(v);n->suspended.store(false);n->fault.store(0);n->resetLoad.store(true);}
@@ -200,6 +221,7 @@ struct Engine {
 }
 int main(int argc,char** argv){
  try{std::string path=argc>1?argv[1]:"/tmp/jerzy-audio-platform.sock";
+  if(path=="--list-lv2"){std::cout<<jerzy_lv2::catalog()<<std::endl;return 0;}
   if(path.size()>=sizeof(sockaddr_un::sun_path))throw std::runtime_error("Zbyt długa ścieżka gniazda");
   std::signal(SIGINT,signalHandler);std::signal(SIGTERM,signalHandler);std::signal(SIGPIPE,SIG_IGN);
   // Never unlink another live engine's socket.
