@@ -1,12 +1,6 @@
 'use strict';
 let btSelected='',pairText='',midiDrafts={};
 function hardwareViewStamp(s){const h=s.hardware||{},b=h.bluetooth||{};return JSON.stringify([s.engine_available,h.available,h.operation,b.devices,b.pairing,b.operations,h.operations,h.midi_learning,h.midi_bindings,b.midi?.connected,b.pan]);}
-function transportControls(parent,n){
- const value=key=>n.parameters.find(p=>p.id===key)?.value||0;
- const playing=value('autoPlay')>0,mode=value('performanceSource');
- const card=el('article',undefined,'rack transport');card.append(el('h3','TRANSPORT'),el('p',n.bypass?'Instrument jest pominięty — użyj Start JAM albo Włącz moduł.':mode===1?'Źródło MIDI — instrument czeka na nuty kontrolera.':playing?'JAM gra.':'Generator STOP — samo włączenie warstwy nie uruchamia nut.'));
- card.append(row(button('▶ Start JAM',()=>action('instrument-transport',{id:n.id,command:'start'}),'primary'),button('■ Stop JAM',()=>action('instrument-transport',{id:n.id,command:'stop'}))));parent.append(card);
-}
 function downloadDiagnostics(){const value=structuredClone(state);if(value.hardware?.bluetooth)delete value.hardware.bluetooth.pairing;const file=new Blob([JSON.stringify(value,null,2)],{type:'application/json'}),a=el('a');a.href=URL.createObjectURL(file);a.download='Jerzy-diagnostyka-'+new Date().toISOString().replaceAll(':','-')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
 function renderSystem(){
  const s=panel('System i audio'),h=state.hardware||{},a=h.audio||{},op=h.operation||{};
@@ -19,7 +13,7 @@ function renderSystem(){
  const controls=el('div',undefined,'grid controls');controls.append(choiceControl('Częstotliwość',[[44100,'44,1 kHz'],[48000,'48 kHz']],rate,v=>{rate=Number(v);}),choiceControl('Bufor',[64,128,256,512,1024].map(v=>[v,v+' próbek']),buffer,v=>{buffer=Number(v);}),choiceControl('Liczba okresów',[[2,'2'],[3,'3']],periods,v=>{periods=Number(v);}));
  const apply=button('Zastosuj i uruchom audio',()=>action('audio-config',{rate,buffer,periods}),'primary');apply.disabled=!h.available||op.pending;
  box.append(controls,apply,el('p','Profil jest stosowany przez restart istniejącego JACK z zachowaniem urządzenia i kanałów. Połączenia i sesja są odtwarzane; błąd uruchamia przywracanie poprzednich ustawień.'));
- if(!h.available)box.append(el('p',h.error||'Brak działającej usługi sprzętowej — aktywuj kompletną paczkę 0.3.0.','fault'));
+ if(!h.available)box.append(el('p',h.error||'Brak działającej usługi sprzętowej — aktywuj kompletną paczkę 0.4.0.','fault'));
  if(a.running===false)box.append(el('p','JACK: '+(a.error||'nie działa'),'fault'));
  s.append(box);
  const repair=button('Uruchom / napraw JACK i audio',()=>action('repair-jack',{}));repair.disabled=!h.available||op.pending;
@@ -30,7 +24,7 @@ function numInput(label,value,min,max,fn){const l=el('label',label),input=el('in
 function bluetooth(){
  const s=panel('Bluetooth i MIDI'),h=state.hardware||{},b=h.bluetooth||{};
  s.append(el('p','Panel iPhone: połączenie PAN z Hotspotem osobistym iPhone’a. Samo sparowanie nie tworzy sieci dla Safari. iPad bez funkcji Hotspot osobisty korzysta z Wi-Fi; BLE MIDI jest osobną funkcją.'));
- if(!h.available)s.append(el('p',h.error||'Usługa sprzętowa nie jest dostępna. Zainstaluj i aktywuj pełną wersję 0.3.0.','fault'));
+ if(!h.available)s.append(el('p',h.error||'Usługa sprzętowa nie jest dostępna. Zainstaluj i aktywuj pełną wersję 0.4.0.','fault'));
  const scan=button(b.scanning?'Wyszukiwanie…':'Wyszukaj urządzenia',()=>action('bluetooth',{operation:'scan'}));scan.disabled=!h.available||b.scanning;s.append(scan);
  if(b.error)s.append(el('p','Bluetooth: '+b.error,'fault'));
  const devices=b.devices||[];if(!devices.some(d=>d.address===btSelected))btSelected=devices[0]?.address||'';

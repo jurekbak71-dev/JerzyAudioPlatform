@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Small standard-library HTTP control service. DSP remains in the C++ JACK client."""
-import zipfile
+import zipfile,uuid
 import argparse,base64,hashlib,http.server,json,os,re,secrets,socket,subprocess,sys,tempfile,threading,time,urllib.parse
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'module-manager'))
 from manager import Library,atomic_json,ID
+from lv2_library import LV2Library
 from hardware import Hardware
 class Application(Hardware):
  def __init__(self,args):
   self.args=args;self.data=Path(args.data).resolve();self.data.mkdir(parents=True,exist_ok=True)
-  self.library=Library(args.modules);self.lock=threading.RLock();self.token=secrets.token_urlsafe(32);self.init_hardware()
+  self.legacy=getattr(args,"legacy_modules",False);self.library=Library(args.modules) if self.legacy else LV2Library(getattr(args,"core_binary",None) or (ROOT/"bin/jerzy-audio-core" if (ROOT/"bin/jerzy-audio-core").exists() else ROOT/"build-lv2/jerzy-audio-core"),getattr(args,"lv2_dir",None) or self.data/"lv2");self.lock=threading.RLock();self.token=secrets.token_urlsafe(32);self.init_hardware();self.lv2_snapshots={}
  def core(self,command):
   with socket.socket(socket.AF_UNIX) as s:
    s.settimeout(10);s.connect(self.args.socket);s.sendall((command+'\n').encode());data=bytearray()
@@ -22,8 +23,12 @@ class Application(Hardware):
   if not result.get('ok'):raise ValueError(result.get('error','Błąd silnika'))
   return result
  def state(self):
-  status=self.core_state();status['hardware']=self.hardware_state();status['library']=self.library.list()
+  status=self.core_state();
+  for node in status['nodes']:
+   if node['id'] in self.lv2_snapshots:node['lv2_state']=self.lv2_snapshots[node['id']]
+  status['plugin_format']='legacy' if self.legacy else 'lv2';status['hardware']=self.hardware_state();status['library']=self.library.list()
   metadata={x['id']:x for x in status['library']}
+  status['library_error']=getattr(self.library,'last_error',None)
   for node in status['nodes']:
    choices=metadata.get(node['module'],{}).get('gui_normalized_choices',{})
    groups=metadata.get(node['module'],{}).get('parameter_groups',{})
@@ -46,8 +51,9 @@ class Application(Hardware):
  def add(self,module,route,asset='',allow_legacy=False):
   entry=next((x for x in self.library.list() if x['id']==module),None)
   if not entry:raise ValueError('Moduł nie jest zainstalowany')
-  if not allow_legacy and module=='bass-ambient-original':raise ValueError('To wersja bez PRO, zachowana dla starszych sesji. Wybierz Bass Ambient PRO — modalny DSP.')
-  if not allow_legacy and module not in ('utility-gain-meter','cab-ir'):
+  if self.legacy and not allow_legacy and module=='bass-ambient-original':raise ValueError('To wersja bez PRO, zachowana dla starszych sesji. Wybierz Bass Ambient PRO — modalny DSP.')
+  if entry.get('format')=='lv2' and not entry.get('supported'):raise ValueError(entry.get('error','Nieobsługiwana wtyczka LV2'))
+  if self.legacy and not allow_legacy and module not in ('utility-gain-meter','cab-ir'):
    report=entry.get('compatibility')
    if not isinstance(report,dict) or report.get('passed') is not True:raise ValueError('Ten moduł nie ma potwierdzonego porównania z oryginalnym DSP. Zainstaluj paczkę z końcówką -original.')
   if route not in (0,1):raise ValueError('Nieprawidłowy tor')
@@ -57,6 +63,12 @@ class Application(Hardware):
    assetPath=str(self.data/'irs'/asset)
    if not Path(assetPath).is_file():raise ValueError('Brak IR')
   return self.core(f'ADD {route} {json.dumps(entry["path"],ensure_ascii=False)} {json.dumps(assetPath,ensure_ascii=False)}')
+ def capture_lv2(self,node):
+  if node['module'].startswith('lv2:'):
+   directory=self.data/'lv2-states'/uuid.uuid4().hex
+   self.core(f'LV2SAVE {node["id"]} '+json.dumps(str(directory),ensure_ascii=False))
+   node['lv2_state']=str(directory/'state.ttl');self.lv2_snapshots[node['id']]=node['lv2_state']
+  return node
  def apply_preset(self,value):
   if value.get('schema')!=1 or not isinstance(value.get('nodes'),list):raise ValueError('Nieprawidłowy preset')
   self.core('BEGIN')
@@ -65,11 +77,14 @@ class Application(Hardware):
     id=self.add(node['module'],int(node['route']),Path(node.get('asset','')).name,allow_legacy=True)['id']
     # Parameter IDs must match the loaded version; unknown IDs are not silently ignored.
     actual=next(x for x in self.core('PENDING')['nodes'] if x['id']==id)
+    if node.get('lv2_state') and node['module'].startswith('lv2:'):
+     self.core(f'LV2RESTORE {id} '+json.dumps(node['lv2_state'],ensure_ascii=False));self.lv2_snapshots[id]=node['lv2_state']
     if [x['id'] for x in actual['parameters'][:len(node['parameters'])]]!=[x['id'] for x in node['parameters']]:raise ValueError('Preset wymaga innej wersji parametrów modułu')
     # Presets store both ABI parameter positions and stable IDs. Metadata was captured at save time.
     for i,p in enumerate(node['parameters']):
      self.core(f'PARAM {id} {i} {float(p["value"])}')
      self.core(f'MAP {id} {i} {int(p.get("mapping",-1))}')
+    self.core(f'MIDICHANNEL {id} {int(node.get("midi_channel",0))}')
     self.core(f'BYPASS {id} {int(node.get("user_bypass",node.get("bypass",False) if not node.get("fault") else False))}')
    self.core('COMMIT')
   except BaseException:
@@ -96,6 +111,9 @@ class Application(Hardware):
      node=next(n for n in self.core('LIST')['nodes'] if n['id']==id)
      if node.get('fault'):self.core(f'RESET {id}')
     cmd={'remove':'REMOVE','bypass':'BYPASS','move':'MOVE'}[action];tail='' if action=='remove' else ' '+str(int(p['value']));return self.core(f'{cmd} {id}{tail}')
+   if action=='lv2-rescan':self.library.list(refresh=True);return {'ok':True}
+   if action=='midi':return self.core(f'MIDI {int(p["id"])} {int(p["status"])} {int(p["a"])} {int(p.get("b",0))}')
+   if action=='midi-channel':return self.core(f'MIDICHANNEL {int(p["id"])} {int(p["channel"])}')
    if action=='learn':return self.core(f'LEARN {int(p["id"])} {int(p["index"])}')
    if action=='param':
     node=next(n for n in self.core('LIST')['nodes'] if n['id']==int(p['id']))
@@ -110,7 +128,7 @@ class Application(Hardware):
     if not re.fullmatch(r'[\w -]{1,64}',name):raise ValueError('Niepoprawna nazwa presetu modułu')
     node=next(x for x in self.core('LIST')['nodes'] if x['id']==int(p['id']))
     file=self.data/'module-presets'/(name+'.json')
-    if action=='module-preset-save':atomic_json(file,node)
+    if action=='module-preset-save':atomic_json(file,self.capture_lv2(node))
     else:
      saved=json.loads(file.read_text())
      if saved['module']!=node['module'] or [x['id'] for x in saved['parameters']]!=[x['id'] for x in node['parameters'][:len(saved['parameters'])]]:raise ValueError('Preset wymaga innego modułu lub wersji parametrów')
@@ -118,6 +136,7 @@ class Application(Hardware):
      for actual,stored in zip(node['parameters'],saved['parameters']):
       value=float(stored['value'])
       if not math.isfinite(value) or not actual['min']<=value<=actual['max'] or (actual['integer'] and value!=round(value)):raise ValueError('Niepoprawny parametr presetu')
+     if saved.get('lv2_state'):self.core(f'LV2RESTORE {node["id"]} '+json.dumps(saved['lv2_state'],ensure_ascii=False));self.lv2_snapshots[node['id']]=saved['lv2_state']
      for index,item in enumerate(saved['parameters']):
       self.core(f'PARAM {node["id"]} {index} {float(item["value"])}')
       self.core(f'MAP {node["id"]} {index} {int(item.get("mapping",-1))}')
@@ -125,7 +144,7 @@ class Application(Hardware):
    if action=='preset-save':
     name=p['name']
     if not re.fullmatch(r'[\w -]{1,64}',name):raise ValueError('Nazwa presetu: maksymalnie 64 znaki, litery i cyfry')
-    state=self.state();state['schema']=1;atomic_json(self.data/'presets'/(name+'.json'),state);return {'ok':True}
+    state=self.state();state['nodes']=[self.capture_lv2(n) for n in state['nodes']];state['schema']=1;atomic_json(self.data/'presets'/(name+'.json'),state);return {'ok':True}
    if action=='preset-load':
     name=p['name']
     if not re.fullmatch(r'[\w -]{1,64}',name):raise ValueError('Niepoprawna nazwa')
@@ -143,11 +162,16 @@ class Application(Hardware):
     with tempfile.NamedTemporaryFile(suffix='.jamod') as f:
      f.write(raw);f.flush()
      import zipfile
+     if not self.legacy:
+      if self.core('LIST')['nodes']:raise ValueError('Przed instalacją lub aktualizacją paczki usuń wtyczki z łańcucha')
+      m=self.library.install(f.name,p['sha256']);return {'ok':True,'module':m['id']}
      with zipfile.ZipFile(f.name) as archive:module=json.loads(archive.read('manifest.json'))['id']
      if any(n['module']==module for n in self.core('LIST')['nodes']):raise ValueError('Przed aktualizacją usuń instancje modułu z grafu')
      m=self.library.install(f.name,p['sha256']);return {'ok':True,'module':m['id']}
    if action in ('module-remove','module-rollback'):
-    if any(n['module']==p['module'] for n in self.core('LIST')['nodes']):raise ValueError('Najpierw usuń instancje tego modułu z grafu')
+    entries=self.library.list();entry=next((e for e in entries if e['id']==p['module']),{})
+    affected={e['id'] for e in entries if entry.get('bundle') and e.get('bundle')==entry['bundle']}|{p['module']}
+    if any(n['module'] in affected for n in self.core('LIST')['nodes']):raise ValueError('Najpierw usuń instancje wtyczek tej paczki z grafu')
     (self.library.remove if action=='module-remove' else self.library.rollback)(p['module']);return {'ok':True}
    if action=='buffer':
     size=int(p['value'])
@@ -163,7 +187,7 @@ class Application(Hardware):
     return {'ok':True}
    raise ValueError('Nieznana operacja')
 class Handler(http.server.BaseHTTPRequestHandler):
- server_version='JerzyAudioPlatform/0.1.0'
+ server_version='JerzyAudioPlatform/0.4.0'
  def log_message(self,*args):pass
  def send(self,code,data,kind='application/json; charset=utf-8'):
   raw=json.dumps(data,ensure_ascii=False).encode() if isinstance(data,dict) else data
@@ -176,7 +200,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
    elif self.path in ('/','/app.js','/hardware.js','/style.css'):
     file={'/':'index.html','/app.js':'app.js','/hardware.js':'hardware.js','/style.css':'style.css'}[self.path];kind={'/':'text/html; charset=utf-8','/app.js':'text/javascript; charset=utf-8','/hardware.js':'text/javascript; charset=utf-8','/style.css':'text/css; charset=utf-8'}[self.path];self.send(200,(ROOT/'web-ui'/file).read_bytes(),kind)
    else:self.send(404,{'error':'Nie znaleziono'})
-  except (OSError,ValueError,KeyError) as e:self.send(503,{'error':str(e)})
+  except (OSError,ValueError,KeyError,RuntimeError,subprocess.SubprocessError) as e:self.send(503,{'error':str(e)})
  def do_POST(self):
   try:
    origin=self.headers.get('Origin');host=self.headers.get('Host','')
@@ -195,7 +219,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
    self.send(200,result)
   except (OSError,ValueError,KeyError,IndexError,RuntimeError,subprocess.SubprocessError,StopIteration,zipfile.BadZipFile) as e:self.send(400,{'error':str(e)})
 def main():
- p=argparse.ArgumentParser();p.add_argument('--socket',default='/tmp/jerzy-audio-platform.sock');p.add_argument('--modules',default=str(ROOT/'modules'));p.add_argument('--data',default=str(Path.home()/'.local/share/jerzy-audio-platform'));p.add_argument('--host',default='127.0.0.1');p.add_argument('--port',type=int,default=8093);p.add_argument('--audio-helper');p.add_argument('--restore',action='store_true');args=p.parse_args()
+ p=argparse.ArgumentParser();p.add_argument('--socket',default='/tmp/jerzy-audio-platform.sock');p.add_argument('--modules',default=str(ROOT/'modules'));p.add_argument('--data',default=str(Path.home()/'.local/share/jerzy-audio-platform'));p.add_argument('--host',default='127.0.0.1');p.add_argument('--port',type=int,default=8093);p.add_argument('--audio-helper');p.add_argument('--restore',action='store_true');p.add_argument('--legacy-modules',action='store_true');p.add_argument('--core-binary');p.add_argument('--lv2-dir');args=p.parse_args()
  app=Application(args)
  if args.restore and (app.data/'last-session.json').exists():
   end=time.monotonic()+15

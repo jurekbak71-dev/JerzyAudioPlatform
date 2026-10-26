@@ -82,7 +82,7 @@ class Hardware:
   if b['slot'] not in range(1,5) or b['channel'] not in range(1,17) or b['number'] not in range(128) or b['type'] not in ('cc','pc') or b['action'] not in ('none','bypass','preset') or b['mode'] not in ('toggle','value') or type(b['bound']) is not bool:raise ValueError('Niepoprawne mapowanie kontrolera')
   if b['action']=='bypass':
    target=p['target'];module=str(target['module']);route=int(target['route']);ordinal=int(target['ordinal'])
-   if not re.fullmatch(r'[a-z][a-z0-9-]{0,63}',module) or route not in (0,1) or ordinal not in range(32):raise ValueError('Niepoprawny cel MIDI')
+   if not (re.fullmatch(r'[a-z][a-z0-9-]{0,63}',module) or (module.startswith('lv2:') and len(module)<4096)) or route not in (0,1) or ordinal not in range(32):raise ValueError('Niepoprawny cel MIDI')
    b['target']={'module':module,'route':route,'ordinal':ordinal}
   if b['action']=='preset':
    name=str(p['preset'])
